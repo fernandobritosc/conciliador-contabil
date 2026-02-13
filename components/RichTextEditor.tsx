@@ -39,18 +39,18 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange }) => {
         e.preventDefault(); // Prevent editor from losing focus
         handleCommand(command, value);
       }}
-      className="p-2 rounded hover:bg-zinc-200 focus:bg-zinc-200 focus:outline-none transition-colors"
+      className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white focus:bg-indigo-500/20 focus:outline-none transition-all"
       title={title}
     >
       {children}
     </button>
   );
 
-  const Separator = () => <div className="w-px h-5 bg-zinc-300 mx-1"></div>;
+  const Separator = () => <div className="w-px h-6 bg-white/10 mx-2"></div>;
 
   return (
-    <div className="border border-zinc-300 rounded-lg focus-within:ring-2 focus-within:ring-indigo-500 bg-white shadow-inner">
-      <div className="toolbar flex items-center flex-wrap p-1 border-b border-zinc-300 bg-zinc-100 rounded-t-lg space-x-1">
+    <div className="border border-white/10 rounded-2xl focus-within:ring-2 focus-within:ring-indigo-500 bg-slate-900 shadow-2xl overflow-hidden">
+      <div className="toolbar flex items-center flex-wrap p-2 border-b border-white/5 bg-slate-800/50 space-x-1">
         <ToolbarButton command="bold" title="Negrito (Ctrl+B)"><Bold className="h-4 w-4" /></ToolbarButton>
         <ToolbarButton command="italic" title="Itálico (Ctrl+I)"><Italic className="h-4 w-4" /></ToolbarButton>
         <ToolbarButton command="underline" title="Sublinhado (Ctrl+U)"><Underline className="h-4 w-4" /></ToolbarButton>
@@ -67,7 +67,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange }) => {
         ref={editorRef}
         contentEditable={true}
         onInput={handleInput}
-        className="w-full min-h-[250px] p-4 font-serif text-zinc-800 leading-relaxed focus:outline-none overflow-y-auto"
+        className="w-full min-h-[350px] p-8 font-serif text-slate-200 text-lg leading-relaxed focus:outline-none overflow-y-auto bg-slate-900/50"
         aria-label="Parecer Técnico Editável"
       />
     </div>

@@ -7,7 +7,7 @@ import ComparisonTable from './components/ComparisonTable';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import Settings from './components/Settings';
-import { ArrowLeft, PlusCircle, History, Eye, CheckCircle, XCircle, Loader2, AlertTriangle, FileSpreadsheet } from 'lucide-react';
+import { ArrowLeft, PlusCircle, History, Eye, CheckCircle, XCircle, Loader2, AlertTriangle, FileSpreadsheet, Trash2 } from 'lucide-react';
 
 const ORGAOS = [
   "PREFEITURA MUNICIPAL DE SENADOR CANEDO",
@@ -102,29 +102,60 @@ const App: React.FC = () => {
     fetchHistory();
   }, []);
 
-  const saveReconciliation = async (result: ComparisonResult) => {
+  const savePartialReconciliation = async (partialData: Partial<ReconciliationRecord>) => {
+    const id = viewingRecord?.id || partialData.id || crypto.randomUUID();
     const newRecordData = {
-      orgao,
-      competencia,
-      status: result.finalStatus,
-      comparison_result: result,
-      nota_tecnica: null,
+      id,
+      orgao: partialData.orgao || orgao,
+      competencia: partialData.competencia || competencia,
+      status: partialData.status || 'EM_ANDAMENTO',
+      comparison_result: partialData.comparison_result || comparisonResult || null,
+      nota_tecnica: partialData.nota_tecnica || viewingRecord?.nota_tecnica || notaTecnicaText || null,
+      created_at: viewingRecord?.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      files: partialData.files || viewingRecord?.files || [
+        ...rhFiles.map(f => f.name),
+        ...retentionFiles.map(f => f.name),
+        ...empenhoFiles.map(f => f.name),
+        ...liquidacaoFiles.map(f => f.name),
+        ...guiaFiles.map(f => f.name)
+      ]
     };
 
     try {
       const { data, error } = await supabase
         .from('reconciliacoes')
-        .insert(newRecordData)
+        .upsert(newRecordData)
         .select()
         .single();
 
       if (error) throw error;
+      const savedRecord = data as ReconciliationRecord;
 
-      setHistory(prev => [data as ReconciliationRecord, ...prev]);
+      setHistory(prev => {
+        const index = prev.findIndex(h => h.id === savedRecord.id);
+        if (index >= 0) {
+          const newHistory = [...prev];
+          newHistory[index] = savedRecord;
+          return newHistory;
+        }
+        return [savedRecord, ...prev];
+      });
+
+      if (!viewingRecord || viewingRecord.id !== savedRecord.id) {
+        setViewingRecord(savedRecord);
+      }
+      return savedRecord;
     } catch (err) {
-      console.error("Failed to save reconciliation to Supabase", err);
-      setError("Erro ao salvar a conciliação no banco de dados.");
+      console.error("Failed to save partial reconciliation", err);
     }
+  };
+
+  const saveReconciliation = async (result: ComparisonResult) => {
+    await savePartialReconciliation({
+      status: result.finalStatus,
+      comparison_result: result
+    });
   };
 
   const handleSaveNotaTecnica = async (nota: string) => {
@@ -155,6 +186,28 @@ const App: React.FC = () => {
     }
   };
 
+  const handleDeleteRecord = async (id: string) => {
+    if (!window.confirm("Tem certeza que deseja excluir permanentemente esta conciliação?")) return;
+
+    try {
+      const { error } = await supabase
+        .from('reconciliacoes')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      setHistory(prev => prev.filter(h => h.id !== id));
+      if (viewingRecord?.id === id) {
+        setViewingRecord(null);
+        setView('history');
+      }
+    } catch (err) {
+      console.error("Failed to delete record", err);
+      alert("Erro ao excluir o registro.");
+    }
+  };
+
   const handleStartReconciliation = () => {
     if (orgao && competencia) {
       resetAll(false);
@@ -172,11 +225,16 @@ const App: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const fileToProcess = files[0];
-      setFiles([fileToProcess]);
-      const base64Data = await fileToBase64(fileToProcess);
-      const data = await extractData(base64Data, fileToProcess.type, docType as any);
-      setData(data);
+      const actualFiles = Array.from(files);
+      setFiles(actualFiles);
+
+      const extractedResults = await Promise.all(actualFiles.map(async (file) => {
+        const base64Data = await fileToBase64(file);
+        return await extractData(base64Data, file.type, docType as any);
+      }));
+
+      // Pass the list if multiple, or single if one
+      setData(extractedResults.length > 1 ? extractedResults : extractedResults[0]);
     } catch (err: any) {
       console.error("Erro detalhado:", err);
       const isQuotaError = err?.message?.includes('Sua cota de uso da API foi excedida');
@@ -196,17 +254,46 @@ const App: React.FC = () => {
   const handleLiquidacaoUpload = createUploadHandler(setLiquidacaoFiles, setLiquidacaoData, 'Liquidacao', 'Nota de Liquidação');
   const handleGuiaUpload = createUploadHandler(setGuiaFiles, setGuiaData, 'Guia', 'Guia DARF');
 
-  const confirmRhData = (data: RhRelatorioData, files: File[]) => { setRelatorioData(data); setRhFiles(files); setCurrentStep('UPLOAD_RETENTION'); };
-  const confirmRetentionData = (data: RetentionReportData, files: File[]) => { setRetentionData(data); setRetentionFiles(files); setCurrentStep('UPLOAD_EMPENHO'); };
-  const confirmEmpenhoData = (data: EmpenhoData, files: File[]) => { setEmpenhoData(data); setEmpenhoFiles(files); setCurrentStep('UPLOAD_LIQUIDACAO'); };
-  const confirmLiquidacaoData = (data: LiquidacaoData, files: File[]) => { setLiquidacaoData(data); setLiquidacaoFiles(files); setCurrentStep('UPLOAD_GUIA'); }
+  const confirmRhData = (data: RhRelatorioData, files: File[]) => {
+    setRelatorioData(data);
+    setRhFiles(files);
+    setCurrentStep('UPLOAD_RETENTION');
+    savePartialReconciliation({ files: files.map(f => f.name) });
+  };
+  const confirmRetentionData = (data: RetentionReportData, files: File[]) => {
+    setRetentionData(data);
+    setRetentionFiles(files);
+    setCurrentStep('UPLOAD_EMPENHO');
+    savePartialReconciliation({ files: [...rhFiles, ...files].map(f => f.name) });
+  };
+  const confirmEmpenhoData = (data: EmpenhoData, files: File[]) => {
+    setEmpenhoData(data);
+    setEmpenhoFiles(files);
+    setCurrentStep('UPLOAD_LIQUIDACAO');
+    savePartialReconciliation({ files: [...rhFiles, ...retentionFiles, ...files].map(f => f.name) });
+  };
+  const confirmLiquidacaoData = (data: LiquidacaoData, files: File[]) => {
+    setLiquidacaoData(data);
+    setLiquidacaoFiles(files);
+    setCurrentStep('UPLOAD_GUIA');
+    savePartialReconciliation({ files: [...rhFiles, ...retentionFiles, ...empenhoFiles, ...files].map(f => f.name) });
+  };
 
   const confirmGuiaData = async (data: RhGuiaData, files: File[]) => {
     setGuiaData(data);
     setGuiaFiles(files);
     if (relatorioData && retentionData && empenhoData && liquidacaoData) {
       const tolerance = 0.05;
+
+      const internalMatches = {
+        seguradosMatch: Math.abs(data.valorSegurados - retentionData.valorRetido) < tolerance,
+        empresaMatch: Math.abs(data.valorEmpresa - (liquidacaoData.valorBruto - liquidacaoData.salarioFamilia - liquidacaoData.salarioMaternidade)) < tolerance, // Ajuste para bater com patronal líquida
+        acidenteMatch: Math.abs(data.valorRiscoAmbiental - (relatorioData.valorAcidente)) < tolerance, // RAT geralmente é direto do RH ou Contabilidade
+        totalMatch: Math.abs(data.totalGuia - (retentionData.valorRetido + (liquidacaoData.valorBruto - liquidacaoData.salarioFamilia - liquidacaoData.salarioMaternidade) + relatorioData.valorAcidente)) < tolerance
+      };
+
       const result: ComparisonResult = {
+        relatorioData,
         retentionData, retentionMatch: Math.abs(retentionData.valorRetido - relatorioData.valorSegurados) < tolerance, retentionDifference: retentionData.valorRetido - relatorioData.valorSegurados,
         empenhoData, empenhoMatch: Math.abs(empenhoData.valor - retentionData.valorRetido) < tolerance, empenhoDifference: empenhoData.valor - retentionData.valorRetido,
         liquidacaoData, liquidacaoBrutoMatch: Math.abs(liquidacaoData.valorBruto - (relatorioData.valorEmpresa + relatorioData.valorAcidente)) < tolerance, liquidacaoBrutoDifference: liquidacaoData.valorBruto - (relatorioData.valorEmpresa + relatorioData.valorAcidente),
@@ -216,17 +303,44 @@ const App: React.FC = () => {
         empresa: { rh: relatorioData.valorEmpresa, guia: data.valorEmpresa, diff: data.valorEmpresa - relatorioData.valorEmpresa, status: Math.abs(data.valorEmpresa - relatorioData.valorEmpresa) < tolerance ? 'MATCH' : 'MISMATCH' },
         acidente: { rh: relatorioData.valorAcidente, guia: data.valorRiscoAmbiental, diff: data.valorRiscoAmbiental - relatorioData.valorAcidente, status: Math.abs(data.valorRiscoAmbiental - relatorioData.valorAcidente) < tolerance ? 'MATCH' : 'MISMATCH' },
         total: { rh: relatorioData.totalARecolher, guia: data.totalGuia, diff: data.totalGuia - relatorioData.totalARecolher, status: Math.abs(data.totalGuia - relatorioData.totalARecolher) < tolerance ? 'MATCH' : 'MISMATCH' },
-        finalStatus: [
-          Math.abs(retentionData.valorRetido - relatorioData.valorSegurados) < tolerance,
-          Math.abs(empenhoData.valor - retentionData.valorRetido) < tolerance,
-          Math.abs(liquidacaoData.valorBruto - (relatorioData.valorEmpresa + relatorioData.valorAcidente)) < tolerance,
-          Math.abs((liquidacaoData.salarioFamilia + liquidacaoData.salarioMaternidade) - relatorioData.deducaoFpas) < tolerance,
-          Math.abs(data.valorSegurados - relatorioData.valorSegurados) < tolerance,
-          Math.abs(data.valorEmpresa - relatorioData.valorEmpresa) < tolerance,
-          Math.abs(data.valorRiscoAmbiental - relatorioData.valorAcidente) < tolerance,
-          Math.abs(data.totalGuia - relatorioData.totalARecolher) < tolerance,
-        ].every(Boolean) ? 'CONCILIADO' : 'DIVERGENTE'
+        internalMatches,
+        triangulation: {
+          rh_vs_contab: {
+            segurados: Math.abs(relatorioData.valorSegurados - retentionData.valorRetido) < tolerance,
+            empresa: Math.abs(relatorioData.valorEmpresa - (liquidacaoData.valorBruto - liquidacaoData.salarioFamilia - liquidacaoData.salarioMaternidade)) < tolerance,
+            total: Math.abs(relatorioData.totalARecolher - (retentionData.valorRetido + (liquidacaoData.valorBruto - liquidacaoData.salarioFamilia - liquidacaoData.salarioMaternidade))) < tolerance
+          },
+          contab_vs_darf: {
+            segurados: internalMatches.seguradosMatch,
+            empresa: internalMatches.empresaMatch,
+            total: internalMatches.totalMatch
+          }
+        },
+        totalContab: (retentionData.valorRetido + (liquidacaoData.valorBruto - liquidacaoData.salarioFamilia - liquidacaoData.salarioMaternidade)),
+        finalStatus: 'DIVERGENTE' // Default
       };
+
+      const rhMatches = [
+        result.retentionMatch,
+        result.liquidacaoBrutoMatch,
+        result.liquidacaoRetencaoMatch,
+        result.segurados.status === 'MATCH',
+        result.empresa.status === 'MATCH',
+        result.acidente.status === 'MATCH',
+        result.total.status === 'MATCH'
+      ].every(Boolean);
+
+      const accountingGuiaMatches = [
+        internalMatches.seguradosMatch,
+        internalMatches.totalMatch
+      ].every(Boolean);
+
+      if (rhMatches) {
+        result.finalStatus = 'CONCILIADO';
+      } else if (accountingGuiaMatches) {
+        result.finalStatus = 'CONCILIADO_COM_RESSALVA';
+      }
+
       setComparisonResult(result);
       await saveReconciliation(result);
       setCurrentStep('COMPARISON');
@@ -235,12 +349,37 @@ const App: React.FC = () => {
 
   const generateNotaTecnicaText = async () => {
     const dataToUse = viewingRecord ? viewingRecord.comparison_result : comparisonResult;
-    if (!dataToUse) return;
+    if (!dataToUse) {
+      console.error("Nenhum dado disponível para gerar a nota técnica.");
+      return;
+    }
+
+    console.log("Gerando nota técnica para:", {
+      origem: viewingRecord ? "Histórico" : "Nova Conciliação",
+      id: viewingRecord?.id,
+      tipoData: typeof dataToUse
+    });
+
     setIsLoadingNotaTecnica(true);
     try {
       const report = await generateNotaTecnica(dataToUse);
+
+      if (!report || report.includes("Não foi possível gerar")) {
+        throw new Error("Resposta inválida da IA");
+      }
+
       setNotaTecnicaText(report);
-    } catch (err) { console.error(err); setNotaTecnicaText("Erro ao gerar parecer técnico."); } finally { setIsLoadingNotaTecnica(false); }
+
+      // Se estiver visualizando histórico, já tenta salvar a nova nota
+      if (viewingRecord) {
+        await handleSaveNotaTecnica(report);
+      }
+    } catch (err) {
+      console.error("Erro na geração da nota:", err);
+      setNotaTecnicaText("Dificuldade na conexão com a IA. Por favor, tente novamente em instantes.");
+    } finally {
+      setIsLoadingNotaTecnica(false);
+    }
   };
 
   const resetAll = (goToNew = true) => {
@@ -406,6 +545,9 @@ const App: React.FC = () => {
                 <button onClick={() => handleViewHistory(rec.id)} className="flex items-center text-xs font-bold uppercase tracking-widest text-indigo-400 hover:text-indigo-300 transition-colors">
                   Detalhes <Eye className="h-4 w-4 ml-2" />
                 </button>
+                <button onClick={() => handleDeleteRecord(rec.id)} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all" title="Excluir Conciliação">
+                  <Trash2 className="h-4 w-4" />
+                </button>
               </div>
             </div>
           )) : (
@@ -421,11 +563,98 @@ const App: React.FC = () => {
 
   const renderProcessScreen = () => {
     const steps = [
-      { step: 'UPLOAD_RH', title: '1. Relatório do RH', description: "Envie a 'Relação da Contribuição Previdenciária'.", manualTitle: "Lançamento - Relação da Contribuição Previdenciária", type: 'Relatorio', allowMultiple: false, data: relatorioData, files: rhFiles, onFileUpload: handleRhUpload, onConfirm: confirmRhData, onClear: () => { setRelatorioData(null); setRhFiles([]); setError(null); }, back: 'new', stepLabel: "1 de 5", section: "Dados do RH" },
-      { step: 'UPLOAD_RETENTION', title: '2. Relatório de Retenção (Contabilidade)', description: "Envie o relatório de retenção de INSS dos segurados.", manualTitle: "Lançamentos - Relação de Retenção", type: 'Retention', allowMultiple: true, data: retentionData, files: retentionFiles, onFileUpload: handleRetentionUpload, onConfirm: confirmRetentionData, onClear: () => { setRetentionData(null); setRetentionFiles([]); setError(null); }, back: 'UPLOAD_RH', stepLabel: "2 de 5", section: "Dados da Contabilidade" },
-      { step: 'UPLOAD_EMPENHO', title: '3. Empenho Extra-Orçamentário', description: "Envie o empenho para os segurados.", manualTitle: "Lançamentos - Empenho Extraorçamentário", type: 'Empenho', allowMultiple: true, data: empenhoData, files: empenhoFiles, onFileUpload: handleEmpenhoUpload, onConfirm: confirmEmpenhoData, onClear: () => { setEmpenhoData(null); setEmpenhoFiles([]); setError(null); }, back: 'UPLOAD_RETENTION', stepLabel: "3 de 5", section: "Dados da Contabilidade" },
-      { step: 'UPLOAD_LIQUIDACAO', title: '4. Nota de Liquidação', description: "Envie a liquidação da parte patronal e deduções.", manualTitle: "Lançamentos - Nota de Liquidação", type: 'Liquidacao', allowMultiple: true, data: liquidacaoData, files: liquidacaoFiles, onFileUpload: handleLiquidacaoUpload, onConfirm: confirmLiquidacaoData, onClear: () => { setLiquidacaoData(null); setLiquidacaoFiles([]); setError(null); }, back: 'UPLOAD_EMPENHO', stepLabel: "4 de 5", section: "Dados da Contabilidade" },
-      { step: 'UPLOAD_GUIA', title: '5. Guia de Recolhimento (DARF)', description: "Envie o 'Documento de Arrecadação' (DARF).", manualTitle: "Lançamentos - DARF", type: 'Guia', allowMultiple: true, data: guiaData, files: guiaFiles, onFileUpload: handleGuiaUpload, onConfirm: confirmGuiaData, onClear: () => { setGuiaData(null); setGuiaFiles([]); setError(null); }, back: 'UPLOAD_LIQUIDACAO', stepLabel: "5 de 5", section: "Guia de Recolhimento" },
+      {
+        step: 'UPLOAD_RH',
+        title: '1. Relatório do RH',
+        description: "Envie a 'Relação da Contribuição Previdenciária'.",
+        manualTitle: "Relação da Contribuição Previdenciária",
+        type: 'Relatorio',
+        allowMultiple: false,
+        data: relatorioData,
+        files: rhFiles,
+        onFileUpload: handleRhUpload,
+        onConfirm: confirmRhData,
+        onClear: () => { setRelatorioData(null); setRhFiles([]); setError(null); },
+        back: 'new',
+        stepLabel: "1 de 5",
+        section: "RH",
+        availableReportTypes: [{ key: 'Relatorio', label: 'Relação Contrib. Previdenciária' }]
+      },
+      {
+        step: 'UPLOAD_RETENTION',
+        title: '2. Retenção de INSS',
+        description: "Envie o relatório de retenção de INSS dos segurados.",
+        manualTitle: "Relação de Retenção",
+        type: 'Retention',
+        allowMultiple: true,
+        data: retentionData,
+        files: retentionFiles,
+        onFileUpload: handleRetentionUpload,
+        onConfirm: confirmRetentionData,
+        onClear: () => { setRetentionData(null); setRetentionFiles([]); setError(null); },
+        back: 'UPLOAD_RH',
+        stepLabel: "2 de 5",
+        section: "Contabilidade",
+        expectedValue: relatorioData ? { label: "Segurados (RH)", value: relatorioData.valorSegurados, keyToMatch: 'valorRetido' } : undefined,
+        availableReportTypes: [{ key: 'Retention', label: 'Relatório de Retenção' }]
+      },
+      {
+        step: 'UPLOAD_EMPENHO',
+        title: '3. Empenho Extra-Orçamentário',
+        description: "Envie o empenho para os segurados.",
+        manualTitle: "Empenho Extraorçamentário",
+        type: 'Empenho',
+        allowMultiple: true,
+        data: empenhoData,
+        files: empenhoFiles,
+        onFileUpload: handleEmpenhoUpload,
+        onConfirm: confirmEmpenhoData,
+        onClear: () => { setEmpenhoData(null); setEmpenhoFiles([]); setError(null); },
+        back: 'UPLOAD_RETENTION',
+        stepLabel: "3 de 5",
+        section: "Contabilidade",
+        expectedValue: relatorioData ? { label: "Alvo Segurados (RH)", value: relatorioData.valorSegurados, keyToMatch: 'valor' } : undefined,
+        availableReportTypes: [{ key: 'Empenho', label: 'Nota de Empenho' }]
+      },
+      {
+        step: 'UPLOAD_LIQUIDACAO',
+        title: '4. Nota de Liquidação',
+        description: "Envie a liquidação da parte patronal e deduções.",
+        manualTitle: "Nota de Liquidação",
+        type: 'Liquidacao',
+        allowMultiple: true,
+        data: liquidacaoData,
+        files: liquidacaoFiles,
+        onFileUpload: handleLiquidacaoUpload,
+        onConfirm: confirmLiquidacaoData,
+        onClear: () => { setLiquidacaoData(null); setLiquidacaoFiles([]); setError(null); },
+        back: 'UPLOAD_EMPENHO',
+        stepLabel: "4 de 5",
+        section: "Contabilidade",
+        expectedValue: relatorioData ? { label: "Patronal (RH)", value: relatorioData.valorEmpresa + relatorioData.valorAcidente, keyToMatch: 'valorBruto' } : undefined,
+        availableReportTypes: [{ key: 'Liquidacao', label: 'Nota de Liquidação' }]
+      },
+      {
+        step: 'UPLOAD_GUIA',
+        title: '5. Guia de Recolhimento (DARF)',
+        description: "Envie o 'Documento de Arrecadação' (DARF).",
+        manualTitle: "DARF Previdenciário",
+        type: 'Guia',
+        allowMultiple: true,
+        data: guiaData,
+        files: guiaFiles,
+        onFileUpload: handleGuiaUpload,
+        onConfirm: confirmGuiaData,
+        onClear: () => { setGuiaData(null); setGuiaFiles([]); setError(null); },
+        back: 'UPLOAD_LIQUIDACAO',
+        stepLabel: "5 de 5",
+        section: "Contabilidade",
+        expectedValue: relatorioData ? { label: "Total a Recolher (RH)", value: relatorioData.totalARecolher, keyToMatch: 'totalGuia' } : undefined,
+        availableReportTypes: [
+          { key: 'Guia', label: 'DARF Previdenciário' },
+          { key: 'GuiaOutros', label: 'Outras Guias' }
+        ]
+      },
     ] as const;
 
     const activeStep = steps.find(s => s.step === currentStep);

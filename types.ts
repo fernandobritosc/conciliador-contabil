@@ -1,6 +1,6 @@
 
 
-export type ComparisonStatus = 'CONCILIADO' | 'DIVERGENTE';
+export type ComparisonStatus = 'CONCILIADO' | 'CONCILIADO_COM_RESSALVA' | 'DIVERGENTE';
 
 export interface RhRelatorioData {
   valorSegurados: number;
@@ -36,6 +36,7 @@ export interface RhGuiaData {
 }
 
 export interface ComparisonResult {
+  relatorioData?: RhRelatorioData;
   retentionData?: RetentionReportData;
   retentionMatch?: boolean;
   retentionDifference?: number;
@@ -52,6 +53,26 @@ export interface ComparisonResult {
   empresa: { rh: number; guia: number; diff: number; status: 'MATCH' | 'MISMATCH' };
   acidente: { rh: number; guia: number; diff: number; status: 'MATCH' | 'MISMATCH' };
   total: { rh: number; guia: number; diff: number; status: 'MATCH' | 'MISMATCH' };
+  internalMatches?: {
+    seguradosMatch: boolean;
+    empresaMatch: boolean;
+    acidenteMatch: boolean;
+    totalMatch: boolean;
+  };
+  // Elos da Triangulação (Mãos Dadas)
+  triangulation?: {
+    rh_vs_contab: {
+      segurados: boolean;
+      empresa: boolean;
+      total: boolean;
+    };
+    contab_vs_darf: {
+      segurados: boolean;
+      empresa: boolean;
+      total: boolean;
+    };
+  };
+  totalContab: number;
   finalStatus: ComparisonStatus;
 }
 
@@ -61,8 +82,10 @@ export interface ReconciliationRecord {
   id: string;
   orgao: string;
   competencia: string;
-  status: ComparisonStatus;
-  created_at: string;
-  comparison_result: ComparisonResult;
+  status: 'CONCILIADO' | 'CONCILIADO_COM_RESSALVA' | 'DIVERGENTE' | 'EM_ANDAMENTO';
+  comparison_result: ComparisonResult | null;
   nota_tecnica: string | null;
+  created_at: string;
+  updated_at: string;
+  files: string[];
 }

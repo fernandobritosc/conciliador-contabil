@@ -77,7 +77,7 @@ export async function extractData(
   try {
     const response = await ai.models.generateContent({
       model: "gemini-1.5-flash",
-      contents: { parts: [textPart, imagePart] },
+      contents: [textPart, imagePart],
     });
 
     const textContent = response.text;
@@ -149,25 +149,29 @@ export const generateNotaTecnica = async (finalData: ComparisonResult): Promise<
 
     INSTRUÇÕES PARA O PARECER TÉCNICO:
     - O texto deve ser formal, técnico, direto e gramaticalmente impecável em português do Brasil.
+    - SE o status for 'CONCILIADO_COM_RESSALVA', declare que os valores da Contabilidade e do DARF coincidem, justificando o parecer favorável, mas aponte a divergência com o RH como uma ressalva que precisa de ajuste administrativo.
     - NÃO utilize NENHUMA formatação markdown (sem '**', '*', '#', etc.). A saída deve ser texto puro.
     - Se houver divergências (Status DIVERGENTE), aponte-as de forma clara e objetiva, preferencialmente em uma lista, indicando o ponto da divergência e a ação corretiva necessária. Foque em sanar o problema.
-    - Se estiver CONCILIADO, emita uma nota de conformidade sucinta, declarando que os valores foram verificados.
-    - Estruture em: "1. Análise da Conciliação" e "2. Conclusão". A seção "Recomendações" só é necessária se houver divergências.
+    - Se estiver CONCILIADO, emita uma nota de conformidade sucinta, declarando que todos os valores (RH, Contabilidade e Guia) foram verificados e estão em total acordo.
+    - Estruture em: "1. Análise da Conciliação" e "2. Conclusão". A seção "Recomendações" só é necessária se houver divergências ou ressalvas.
     - O título principal, "PARECER TÉCNICO DE CONCILIAÇÃO PREVIDENCIÁRIA", não deve ser incluído no corpo da sua resposta, ele será adicionado externamente.
   `;
 
   try {
     const response = await ai.models.generateContent({
       model,
-      contents: { parts: [{ text: prompt }] }
+      contents: prompt
     });
     let text = response.text;
     if (!text) throw new Error("A API não retornou o parecer técnico.");
 
-    // Cleanup any lingering markdown characters
+    // Cleanup any lingering markdown characters and horizontal rules
     text = text.replace(/\*\*/g, '').replace(/\*/g, '');
+    text = text.replace(/^-{3,}\s*$/gm, ''); // Remove lines like ---
+    text = text.replace(/^_{3,}\s*$/gm, ''); // Remove lines like ___
+    text = text.replace(/^\*{3,}\s*$/gm, ''); // Remove lines like ***
 
-    return text;
+    return text.trim();
   } catch (error) {
     console.error("Erro ao gerar parecer técnico:", error);
     return "Não foi possível gerar o parecer técnico automaticamente devido a um erro de conexão.";

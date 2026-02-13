@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ComparisonResult } from '../types';
-import { CheckCircle, XCircle, FileText, Download, Loader2, Edit2, Save } from 'lucide-react';
+import { CheckCircle, XCircle, FileText, Download, Loader2, Edit2, Save, Check, AlertCircle } from 'lucide-react';
 import { generatePdf } from '../services/pdfService';
 import RichTextEditor from './RichTextEditor';
 
@@ -48,7 +48,7 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
         if (!editableNotaTecnica) return;
         setIsGeneratingPdf(true);
         try {
-            await generatePdf(editableNotaTecnica, files);
+            await generatePdf(editableNotaTecnica, files, finalData);
         } catch (error) {
             console.error("Failed to generate PDF:", error);
             alert("Ocorreu um erro ao gerar o PDF. Verifique o console para mais detalhes.");
@@ -68,87 +68,105 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
         }
     };
 
-    const renderRow = (label: string, rhValue: number, guiaValue: number, diff: number, status: 'MATCH' | 'MISMATCH', titleA: string, titleB: string) => {
-        const isError = status === 'MISMATCH';
-        return (
-            <tr className={`border-b border-white/5 ${isError ? 'bg-red-500/5' : ''} hover:bg-white/5 transition-colors group`}>
-                <td className="py-5 px-6 font-semibold text-slate-300 group-hover:text-white transition-colors">{label}</td>
-                <td className="py-5 px-6 text-slate-400 font-mono text-sm" title={titleA}>
-                    {rhValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                </td>
-                <td className="py-5 px-6 text-slate-400 font-mono text-sm" title={titleB}>
-                    {guiaValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                </td>
-                <td className={`py-5 px-6 font-bold font-mono text-sm ${isError ? 'text-red-400' : 'text-emerald-400'}`}>
-                    {Math.abs(diff) < 0.01 ? <span className="opacity-20">-</span> : diff.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                </td>
-                <td className="py-5 px-6 text-center">
-                    <div className="flex justify-center">
-                        {isError ? (
-                            <div className="bg-red-500/10 p-1.5 rounded-lg border border-red-500/20">
-                                <XCircle className="h-5 w-5 text-red-400" />
-                            </div>
-                        ) : (
-                            <div className="bg-emerald-500/10 p-1.5 rounded-lg border border-emerald-500/20">
-                                <CheckCircle className="h-5 w-5 text-emerald-400" />
-                            </div>
-                        )}
-                    </div>
-                </td>
-            </tr>
-        );
-    };
-
     return (
         <div className="w-full max-w-6xl mx-auto animate-scale-in">
             <div className="flex items-center justify-between mb-10">
                 <div className="flex flex-col">
-                    <h2 className="text-3xl font-extrabold text-white tracking-tighter">Análise Diagnóstica</h2>
-                    <p className="text-slate-400 font-medium mt-1">Comparativo técnico de integridade documental.</p>
+                    <h2 className="text-3xl font-extrabold text-white tracking-tighter">Resumo Executivo</h2>
+                    <p className="text-slate-400 font-medium mt-1">Checklist de conformidade da auditoria previdenciária.</p>
                 </div>
                 <div className={`px-6 py-2 rounded-2xl border font-bold text-sm tracking-widest uppercase ${finalData.finalStatus === 'DIVERGENTE' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
                     {finalData.finalStatus}
                 </div>
             </div>
 
-            <div className="glass-card rounded-[2rem] overflow-hidden mb-12 border-white/10">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead className="bg-white/5 border-b border-white/10">
-                            <tr>
-                                <th className="py-4 px-6 font-bold text-indigo-400 uppercase text-[10px] tracking-[0.2em]">Ponto de Auditoria</th>
-                                <th className="py-4 px-6 font-bold text-indigo-400 uppercase text-[10px] tracking-[0.2em]">Origem RH</th>
-                                <th className="py-4 px-6 font-bold text-indigo-400 uppercase text-[10px] tracking-[0.2em]">Origem EXTERNA</th>
-                                <th className="py-4 px-6 font-bold text-indigo-400 uppercase text-[10px] tracking-[0.2em]">Diferença Apurada</th>
-                                <th className="py-4 px-6 font-bold text-indigo-400 uppercase text-[10px] tracking-[0.2em] text-center">Conformidade</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                            {finalData.retentionMatch !== undefined && renderRow('01. Segurados vs Retenção Contábil', finalData.segurados.rh, finalData.retentionData!.valorRetido, finalData.retentionDifference!, finalData.retentionMatch ? 'MATCH' : 'MISMATCH', 'Valor dos Segurados do Relatório RH', 'Valor do Relatório de Retenção')}
-                            {finalData.empenhoMatch !== undefined && renderRow('02. Retenção vs Empenho Extra', finalData.retentionData!.valorRetido, finalData.empenhoData!.valor, finalData.empenhoDifference!, finalData.empenhoMatch ? 'MATCH' : 'MISMATCH', 'Valor do Relatório de Retenção', 'Valor do Empenho')}
-                            {finalData.liquidacaoBrutoMatch !== undefined && renderRow('03. Patronal vs Liquidação Bruta', (finalData.empresa.rh + finalData.acidente.rh), finalData.liquidacaoData!.valorBruto, finalData.liquidacaoBrutoDifference!, finalData.liquidacaoBrutoMatch ? 'MATCH' : 'MISMATCH', 'Soma de Valor Empresa + Acidente do RH', 'Valor Bruto da Nota de Liquidação')}
-                            {finalData.liquidacaoRetencaoMatch !== undefined && renderRow('04. Deduções vs Liquidação (Sal.Fam/Mat)', finalData.deducaoFpas, (finalData.liquidacaoData!.salarioFamilia + finalData.liquidacaoData!.salarioMaternidade), finalData.liquidacaoRetencaoDifference!, finalData.liquidacaoRetencaoMatch ? 'MATCH' : 'MISMATCH', 'Dedução FPAS do Relatório RH', 'Soma de Sal. Família + Maternidade da Liquidação')}
-
-                            {renderRow('05. Conciliação Segurados (Guia 1082)', finalData.segurados.rh, finalData.segurados.guia, finalData.segurados.diff, finalData.segurados.status, 'Valor Segurados do Relatório RH', 'Valor Segurados da Guia DARF')}
-                            {renderRow('06. Conciliação Patronal (Guia 1138)', finalData.empresa.rh, finalData.empresa.guia, finalData.empresa.diff, finalData.empresa.status, 'Valor Empresa do Relatório RH', 'Valor Empresa da Guia DARF')}
-                            {renderRow('07. Conciliação RAT/RAT (Guia 1646)', finalData.acidente.rh, finalData.acidente.guia, finalData.acidente.diff, finalData.acidente.status, 'Valor Acidente/RAT do Relatório RH', 'Valor Risco Ambiental da Guia DARF')}
-
-                            <tr className="bg-indigo-600/10 border-t border-white/10">
-                                <td className="py-6 px-6 font-extrabold text-white text-lg">TOTAL CONSOLIDADO</td>
-                                <td className="py-6 px-6 text-white font-mono font-bold">{finalData.total.rh.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                                <td className="py-6 px-6 text-white font-mono font-bold">{finalData.total.guia.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                                <td className={`py-6 px-6 font-mono font-bold text-lg ${finalData.total.status === 'MISMATCH' ? 'text-red-400' : 'text-emerald-400'}`}>{Math.abs(finalData.total.diff) < 0.01 ? 'R$ 0,00' : finalData.total.diff.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                                <td className="py-6 px-6 text-center">
-                                    <div className="flex justify-center">
-                                        {finalData.finalStatus === 'DIVERGENTE' ?
-                                            <div className="flex items-center space-x-2 bg-red-500/20 text-red-400 px-4 py-1.5 rounded-xl border border-red-500/30 font-bold text-xs"><XCircle className="h-4 w-4" /><span>REVISÃO</span></div> :
-                                            <div className="flex items-center space-x-2 bg-emerald-500/20 text-emerald-400 px-4 py-1.5 rounded-xl border border-emerald-500/30 font-bold text-xs"><CheckCircle className="h-4 w-4" /><span>APROVADO</span></div>
-                                        }
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
+                {[
+                    { label: 'Segurados vs Retenção', valA: finalData.segurados.rh, valB: finalData.retentionData?.valorRetido || 0, match: finalData.retentionMatch, linkA: finalData.triangulation?.rh_vs_contab.segurados, linkB: finalData.triangulation?.contab_vs_darf.segurados, desc: 'RH vs Retenção Contábil' },
+                    { label: 'Retenção vs Empenho', valA: finalData.retentionData?.valorRetido || 0, valB: finalData.empenhoData?.valor || 0, match: finalData.empenhoMatch, linkA: true, linkB: true, desc: 'Retenção vs Empenho' }, // Etapas internas contábeis
+                    { label: 'Patronal (RH vs Liquidação)', valA: (finalData.empresa.rh + finalData.acidente.rh), valB: finalData.liquidacaoData?.valorBruto || 0, match: finalData.liquidacaoBrutoMatch, linkA: finalData.triangulation?.rh_vs_contab.empresa, linkB: true, desc: 'RH vs Liquidação Bruta' },
+                    { label: 'RH vs Guia (Segurados)', valA: finalData.segurados.rh, valB: finalData.segurados.guia, match: finalData.segurados.status === 'MATCH', linkA: finalData.triangulation?.rh_vs_contab.segurados, linkB: finalData.triangulation?.contab_vs_darf.segurados, desc: 'RH vs DARF 1082' },
+                    { label: 'RH vs Guia (Patronal)', valA: finalData.empresa.rh, valB: finalData.empresa.guia, match: finalData.empresa.status === 'MATCH', linkA: finalData.triangulation?.rh_vs_contab.empresa, linkB: finalData.triangulation?.contab_vs_darf.empresa, desc: 'RH vs DARF 1138' },
+                    { label: 'RH vs Guia (Total)', valA: finalData.total.rh, valB: finalData.total.guia, match: finalData.total.status === 'MATCH', linkA: finalData.triangulation?.rh_vs_contab.total, linkB: finalData.triangulation?.contab_vs_darf.total, desc: 'Cruzamento Final' },
+                ].map((item, idx) => {
+                    const isRessalva = !item.match && item.linkB;
+                    return (
+                        <div key={idx} className={`glass-card p-5 rounded-2xl border transition-all duration-300 flex flex-col justify-between ${item.match ? 'border-white/5 bg-white/[0.01]' : isRessalva ? 'border-cyan-500/30 bg-cyan-500/10 shadow-lg shadow-cyan-500/5' : 'border-red-500/20 bg-red-500/10 shadow-lg shadow-red-500/5'}`}>
+                            <div className="flex items-start justify-between mb-4">
+                                <div className="flex items-start gap-3">
+                                    <div className={`w-fit p-2 rounded-lg border ${item.match ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : isRessalva ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+                                        {item.match ? <CheckCircle className="h-5 w-5" /> : isRessalva ? <AlertCircle className="h-5 w-5" /> : <XCircle className="h-5 w-5" />}
                                     </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                    <div className="flex flex-col">
+                                        <h4 className="text-sm font-black text-white uppercase tracking-tight leading-tight">{item.label}</h4>
+                                        <p className="text-[10px] text-slate-500 font-medium mt-1">{item.desc}</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col items-end shrink-0 gap-3">
+                                    <div className="flex gap-1.5">
+                                        <div title="RH ↔ Contab" className={`px-2 py-1 rounded-lg text-[9px] font-bold flex items-center gap-1 ${item.linkA ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30' : 'bg-red-500/20 text-red-500 border border-red-500/30'}`}>
+                                            RH <Check className="h-2.5 w-2.5" />
+                                        </div>
+                                        <div title="Contab ↔ DARF" className={`px-2 py-1 rounded-lg text-[9px] font-bold flex items-center gap-1 ${item.linkB ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30' : 'bg-red-500/20 text-red-500 border border-red-500/30'}`}>
+                                            CONTAB <Check className="h-2.5 w-2.5" />
+                                        </div>
+                                    </div>
+                                    <p className={`text-base font-black font-mono tracking-tighter ${item.match ? 'text-emerald-400' : isRessalva ? 'text-cyan-400' : 'text-red-400'}`}>
+                                        {(item.valB - item.valA).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-4 pt-4 border-t border-white/5 mt-auto">
+                                <div className="flex-1 bg-slate-900/40 p-2 rounded-xl border border-white/5">
+                                    <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">RH</p>
+                                    <p className="text-[11px] font-bold text-white font-mono">{item.valA.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                                </div>
+                                <div className="flex-1 bg-slate-900/40 p-2 rounded-xl border border-white/5">
+                                    <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1 text-right">CONTAB.</p>
+                                    <p className="text-[11px] font-bold text-white font-mono text-right">{item.valB.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+
+                <div className={`sm:col-span-2 lg:col-span-3 glass-card p-6 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-6 border-2 transition-all duration-700 ${finalData.finalStatus === 'CONCILIADO' ? 'bg-emerald-600/10 border-emerald-500/30' :
+                    finalData.finalStatus === 'CONCILIADO_COM_RESSALVA' ? 'bg-cyan-600/10 border-cyan-500/30' :
+                        'bg-red-600/10 border-red-500/30'}`}>
+                    <div className="flex items-center">
+                        <div className={`p-4 rounded-2xl mr-5 shadow-lg ${finalData.finalStatus === 'CONCILIADO' ? 'bg-emerald-600 shadow-emerald-600/20' :
+                            finalData.finalStatus === 'CONCILIADO_COM_RESSALVA' ? 'bg-cyan-600 shadow-cyan-600/20' :
+                                'bg-red-600 shadow-red-600/20'}`}>
+                            {finalData.finalStatus === 'CONCILIADO' ? <CheckCircle className="h-7 w-7 text-white" /> :
+                                finalData.finalStatus === 'CONCILIADO_COM_RESSALVA' ? <AlertCircle className="h-7 w-7 text-white" /> :
+                                    <XCircle className="h-7 w-7 text-white" />}
+                        </div>
+                        <div>
+                            <p className={`text-[10px] font-black uppercase tracking-[0.3em] mb-1 ${finalData.finalStatus === 'CONCILIADO' ? 'text-emerald-400' :
+                                finalData.finalStatus === 'CONCILIADO_COM_RESSALVA' ? 'text-cyan-400' :
+                                    'text-red-400'}`}>Dossiê Consolidado</p>
+                            <h3 className="text-2xl font-black text-white tracking-tighter uppercase whitespace-nowrap">
+                                {finalData.finalStatus.replace(/_/g, ' ')}
+                            </h3>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-8">
+                        <div className="text-right">
+                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Total RH</p>
+                            <p className="text-lg font-bold text-white font-mono">{finalData.total.rh.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Total Contab.</p>
+                            <p className="text-lg font-bold text-white font-mono">{finalData.totalContab.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Total Guia</p>
+                            <p className="text-lg font-bold text-white font-mono">{finalData.total.guia.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
