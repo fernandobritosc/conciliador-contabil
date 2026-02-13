@@ -56,7 +56,7 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
             setIsGeneratingPdf(false);
         }
     };
-    
+
     const handleSaveNote = async () => {
         setIsSavingNote(true);
         try {
@@ -71,64 +71,80 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
     const renderRow = (label: string, rhValue: number, guiaValue: number, diff: number, status: 'MATCH' | 'MISMATCH', titleA: string, titleB: string) => {
         const isError = status === 'MISMATCH';
         return (
-            <tr className={`border-b border-zinc-200 ${isError ? 'bg-red-50' : ''} hover:bg-zinc-50 transition-colors`}>
-                <td className="py-4 px-6 font-medium text-zinc-700">{label}</td>
-                <td className="py-4 px-6 text-zinc-600 font-mono" title={titleA}>
+            <tr className={`border-b border-white/5 ${isError ? 'bg-red-500/5' : ''} hover:bg-white/5 transition-colors group`}>
+                <td className="py-5 px-6 font-semibold text-slate-300 group-hover:text-white transition-colors">{label}</td>
+                <td className="py-5 px-6 text-slate-400 font-mono text-sm" title={titleA}>
                     {rhValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                 </td>
-                <td className="py-4 px-6 text-zinc-600 font-mono" title={titleB}>
+                <td className="py-5 px-6 text-slate-400 font-mono text-sm" title={titleB}>
                     {guiaValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                 </td>
-                <td className={`py-4 px-6 font-bold font-mono ${isError ? 'text-red-600' : 'text-green-600'}`}>
-                    {Math.abs(diff) < 0.01 ? '-' : diff.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                <td className={`py-5 px-6 font-bold font-mono text-sm ${isError ? 'text-red-400' : 'text-emerald-400'}`}>
+                    {Math.abs(diff) < 0.01 ? <span className="opacity-20">-</span> : diff.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                 </td>
-                <td className="py-4 px-6 text-center">
-                    {isError ? <XCircle className="inline h-6 w-6 text-red-500" /> : <CheckCircle className="inline h-6 w-6 text-green-500" />}
+                <td className="py-5 px-6 text-center">
+                    <div className="flex justify-center">
+                        {isError ? (
+                            <div className="bg-red-500/10 p-1.5 rounded-lg border border-red-500/20">
+                                <XCircle className="h-5 w-5 text-red-400" />
+                            </div>
+                        ) : (
+                            <div className="bg-emerald-500/10 p-1.5 rounded-lg border border-emerald-500/20">
+                                <CheckCircle className="h-5 w-5 text-emerald-400" />
+                            </div>
+                        )}
+                    </div>
                 </td>
             </tr>
         );
     };
-    
+
     return (
-        <div className="w-full max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="text-center mb-8">
-                <h2 className="text-3xl font-bold text-zinc-800 mb-2">Resultado da Conciliação</h2>
-                <p className="text-zinc-600">Comparativo detalhado dos valores extraídos dos documentos.</p>
+        <div className="w-full max-w-6xl mx-auto animate-scale-in">
+            <div className="flex items-center justify-between mb-10">
+                <div className="flex flex-col">
+                    <h2 className="text-3xl font-extrabold text-white tracking-tighter">Análise Diagnóstica</h2>
+                    <p className="text-slate-400 font-medium mt-1">Comparativo técnico de integridade documental.</p>
+                </div>
+                <div className={`px-6 py-2 rounded-2xl border font-bold text-sm tracking-widest uppercase ${finalData.finalStatus === 'DIVERGENTE' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
+                    {finalData.finalStatus}
+                </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-xl overflow-hidden border border-zinc-200 mb-8">
+            <div className="glass-card rounded-[2rem] overflow-hidden mb-12 border-white/10">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
-                        <thead className="bg-zinc-50">
-                            <tr className="border-b border-zinc-200">
-                                <th className="py-3 px-6 font-semibold text-zinc-600 uppercase text-xs tracking-wider">Item de Conferência</th>
-                                <th className="py-3 px-6 font-semibold text-zinc-600 uppercase text-xs tracking-wider">Fonte A (Valor)</th>
-                                <th className="py-3 px-6 font-semibold text-zinc-600 uppercase text-xs tracking-wider">Fonte B (Valor)</th>
-                                <th className="py-3 px-6 font-semibold text-zinc-600 uppercase text-xs tracking-wider">Diferença</th>
-                                <th className="py-3 px-6 font-semibold text-zinc-600 uppercase text-xs tracking-wider text-center">Status</th>
+                        <thead className="bg-white/5 border-b border-white/10">
+                            <tr>
+                                <th className="py-4 px-6 font-bold text-indigo-400 uppercase text-[10px] tracking-[0.2em]">Ponto de Auditoria</th>
+                                <th className="py-4 px-6 font-bold text-indigo-400 uppercase text-[10px] tracking-[0.2em]">Origem RH</th>
+                                <th className="py-4 px-6 font-bold text-indigo-400 uppercase text-[10px] tracking-[0.2em]">Origem EXTERNA</th>
+                                <th className="py-4 px-6 font-bold text-indigo-400 uppercase text-[10px] tracking-[0.2em]">Diferença Apurada</th>
+                                <th className="py-4 px-6 font-bold text-indigo-400 uppercase text-[10px] tracking-[0.2em] text-center">Conformidade</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-200">
-                            {finalData.retentionMatch !== undefined && renderRow('1. Segurados (RH) vs Retenção (Contábil)', finalData.segurados.rh, finalData.retentionData!.valorRetido, finalData.retentionDifference!, finalData.retentionMatch ? 'MATCH' : 'MISMATCH', 'Valor dos Segurados do Relatório RH', 'Valor do Relatório de Retenção')}
-                            {finalData.empenhoMatch !== undefined && renderRow('2. Retenção (Contábil) vs Empenho (Contábil)', finalData.retentionData!.valorRetido, finalData.empenhoData!.valor, finalData.empenhoDifference!, finalData.empenhoMatch ? 'MATCH' : 'MISMATCH', 'Valor do Relatório de Retenção', 'Valor do Empenho')}
-                            {finalData.liquidacaoBrutoMatch !== undefined && renderRow('3. Patronal (RH) vs Liquidação Bruta (Contábil)', (finalData.empresa.rh + finalData.acidente.rh), finalData.liquidacaoData!.valorBruto, finalData.liquidacaoBrutoDifference!, finalData.liquidacaoBrutoMatch ? 'MATCH' : 'MISMATCH', 'Soma de Valor Empresa + Acidente do RH', 'Valor Bruto da Nota de Liquidação')}
-                            {finalData.liquidacaoRetencaoMatch !== undefined && renderRow('4. Deduções (RH) vs Retenção (Liquidação)', finalData.deducaoFpas, (finalData.liquidacaoData!.salarioFamilia + finalData.liquidacaoData!.salarioMaternidade), finalData.liquidacaoRetencaoDifference!, finalData.liquidacaoRetencaoMatch ? 'MATCH' : 'MISMATCH', 'Dedução FPAS do Relatório RH', 'Soma de Sal. Família + Maternidade da Liquidação')}
-                            
-                            {renderRow('5. Segurados (RH vs Guia 1082)', finalData.segurados.rh, finalData.segurados.guia, finalData.segurados.diff, finalData.segurados.status, 'Valor Segurados do Relatório RH', 'Valor Segurados da Guia DARF')}
-                            {renderRow('6. Empresa (RH vs Guia 1138)', finalData.empresa.rh, finalData.empresa.guia, finalData.empresa.diff, finalData.empresa.status, 'Valor Empresa do Relatório RH', 'Valor Empresa da Guia DARF')}
-                            {renderRow('7. Acidente/RAT (RH vs Guia 1646)', finalData.acidente.rh, finalData.acidente.guia, finalData.acidente.diff, finalData.acidente.status, 'Valor Acidente/RAT do Relatório RH', 'Valor Risco Ambiental da Guia DARF')}
+                        <tbody className="divide-y divide-white/5">
+                            {finalData.retentionMatch !== undefined && renderRow('01. Segurados vs Retenção Contábil', finalData.segurados.rh, finalData.retentionData!.valorRetido, finalData.retentionDifference!, finalData.retentionMatch ? 'MATCH' : 'MISMATCH', 'Valor dos Segurados do Relatório RH', 'Valor do Relatório de Retenção')}
+                            {finalData.empenhoMatch !== undefined && renderRow('02. Retenção vs Empenho Extra', finalData.retentionData!.valorRetido, finalData.empenhoData!.valor, finalData.empenhoDifference!, finalData.empenhoMatch ? 'MATCH' : 'MISMATCH', 'Valor do Relatório de Retenção', 'Valor do Empenho')}
+                            {finalData.liquidacaoBrutoMatch !== undefined && renderRow('03. Patronal vs Liquidação Bruta', (finalData.empresa.rh + finalData.acidente.rh), finalData.liquidacaoData!.valorBruto, finalData.liquidacaoBrutoDifference!, finalData.liquidacaoBrutoMatch ? 'MATCH' : 'MISMATCH', 'Soma de Valor Empresa + Acidente do RH', 'Valor Bruto da Nota de Liquidação')}
+                            {finalData.liquidacaoRetencaoMatch !== undefined && renderRow('04. Deduções vs Liquidação (Sal.Fam/Mat)', finalData.deducaoFpas, (finalData.liquidacaoData!.salarioFamilia + finalData.liquidacaoData!.salarioMaternidade), finalData.liquidacaoRetencaoDifference!, finalData.liquidacaoRetencaoMatch ? 'MATCH' : 'MISMATCH', 'Dedução FPAS do Relatório RH', 'Soma de Sal. Família + Maternidade da Liquidação')}
 
-                            <tr className="bg-zinc-100 font-bold border-t-2 border-zinc-300">
-                                <td className="py-4 px-6 text-zinc-900">TOTAL GERAL (RH vs Guia)</td>
-                                <td className="py-4 px-6 text-zinc-900" title="Valor Total a Recolher do Relatório RH">{finalData.total.rh.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                                <td className="py-4 px-6 text-zinc-900" title="Valor Total da Guia DARF">{finalData.total.guia.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                                <td className={`py-4 px-6 ${finalData.total.status === 'MISMATCH' ? 'text-red-700' : 'text-green-700'}`}>{Math.abs(finalData.total.diff) < 0.01 ? '-' : finalData.total.diff.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                                <td className="py-4 px-6 text-center">
-                                    {finalData.finalStatus === 'DIVERGENTE' ? (
-                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800">DIVERGENTE</span>
-                                    ) : (
-                                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800">CONCILIADO</span>
-                                    )}
+                            {renderRow('05. Conciliação Segurados (Guia 1082)', finalData.segurados.rh, finalData.segurados.guia, finalData.segurados.diff, finalData.segurados.status, 'Valor Segurados do Relatório RH', 'Valor Segurados da Guia DARF')}
+                            {renderRow('06. Conciliação Patronal (Guia 1138)', finalData.empresa.rh, finalData.empresa.guia, finalData.empresa.diff, finalData.empresa.status, 'Valor Empresa do Relatório RH', 'Valor Empresa da Guia DARF')}
+                            {renderRow('07. Conciliação RAT/RAT (Guia 1646)', finalData.acidente.rh, finalData.acidente.guia, finalData.acidente.diff, finalData.acidente.status, 'Valor Acidente/RAT do Relatório RH', 'Valor Risco Ambiental da Guia DARF')}
+
+                            <tr className="bg-indigo-600/10 border-t border-white/10">
+                                <td className="py-6 px-6 font-extrabold text-white text-lg">TOTAL CONSOLIDADO</td>
+                                <td className="py-6 px-6 text-white font-mono font-bold">{finalData.total.rh.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                                <td className="py-6 px-6 text-white font-mono font-bold">{finalData.total.guia.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                                <td className={`py-6 px-6 font-mono font-bold text-lg ${finalData.total.status === 'MISMATCH' ? 'text-red-400' : 'text-emerald-400'}`}>{Math.abs(finalData.total.diff) < 0.01 ? 'R$ 0,00' : finalData.total.diff.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                                <td className="py-6 px-6 text-center">
+                                    <div className="flex justify-center">
+                                        {finalData.finalStatus === 'DIVERGENTE' ?
+                                            <div className="flex items-center space-x-2 bg-red-500/20 text-red-400 px-4 py-1.5 rounded-xl border border-red-500/30 font-bold text-xs"><XCircle className="h-4 w-4" /><span>REVISÃO</span></div> :
+                                            <div className="flex items-center space-x-2 bg-emerald-500/20 text-emerald-400 px-4 py-1.5 rounded-xl border border-emerald-500/30 font-bold text-xs"><CheckCircle className="h-4 w-4" /><span>APROVADO</span></div>
+                                        }
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
@@ -136,53 +152,65 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
                 </div>
             </div>
 
-            <div className="flex flex-col md:flex-row justify-center gap-4">
+            <div className="flex flex-col md:flex-row justify-center gap-6 mb-16">
                 <button
                     onClick={onGenerateNotaTecnica}
                     disabled={isLoadingNotaTecnica}
-                    className="flex items-center justify-center px-8 py-3 bg-indigo-600 text-white font-bold rounded-lg shadow-lg hover:bg-indigo-700 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 max-w-xs group relative overflow-hidden flex items-center justify-center px-8 py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-xl hover:shadow-indigo-500/30 transition-all disabled:opacity-50"
                 >
-                    {isLoadingNotaTecnica ? <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Gerando...</> : <><FileText className="h-5 w-5 mr-2" />Gerar Parecer Técnico</>}
+                    <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-cyan-500 opacity-0 group-hover:opacity-100 transition-all duration-300" />
+                    <span className="relative z-10 flex items-center">
+                        {isLoadingNotaTecnica ? <><Loader2 className="h-5 w-5 mr-3 animate-spin" />AGUARDE...</> : <><FileText className="h-5 w-5 mr-3" />Gerar Parecer IA</>}
+                    </span>
                 </button>
                 {isHistoryView ? (
                     <button
                         onClick={onRectify}
-                        className="flex items-center justify-center px-8 py-3 bg-orange-500 text-white font-bold rounded-lg shadow-lg hover:bg-orange-600 hover:shadow-xl transition-all"
+                        className="flex-1 max-w-xs flex items-center justify-center px-8 py-4 bg-slate-800 text-slate-200 font-bold rounded-2xl border border-white/10 hover:bg-slate-700 transition-all"
                     >
-                        <Edit2 className="h-5 w-5 mr-2" />Retificar
+                        <Edit2 className="h-5 w-5 mr-3" />Retificar Dossiê
                     </button>
                 ) : (
                     <button
                         onClick={onReset}
-                        className="flex items-center justify-center px-8 py-3 bg-white text-zinc-600 border border-zinc-300 font-semibold rounded-lg hover:bg-zinc-50 transition-all"
+                        className="flex-1 max-w-xs flex items-center justify-center px-8 py-4 bg-slate-800 text-slate-200 font-bold rounded-2xl border border-white/10 hover:bg-slate-700 transition-all"
                     >
-                        Nova Conciliação
+                        Nova Auditoria
                     </button>
                 )}
             </div>
 
-            <div className="mt-8 bg-white p-8 rounded-xl border border-zinc-200 shadow-lg animate-in fade-in zoom-in duration-300">
-                <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-4">
-                    <h3 className="text-xl font-bold text-zinc-800 flex items-center mb-2 sm:mb-0"><FileText className="h-6 w-6 mr-2 text-zinc-500" />Parecer Técnico (Editável)</h3>
+            <div className="glass-card p-10 rounded-[2.5rem] border-white/10 animate-slide-up">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-8">
+                    <div className="flex items-center space-x-3">
+                        <div className="bg-slate-800 p-2.5 rounded-xl border border-white/5 text-indigo-400">
+                            <FileText className="h-6 w-6" />
+                        </div>
+                        <h3 className="text-2xl font-bold text-white tracking-tight">Parecer Técnico</h3>
+                    </div>
                     <button
                         onClick={handleSaveNote}
                         disabled={isSavingNote}
-                        className="flex items-center justify-center px-4 py-2 bg-green-600 text-white font-bold rounded-lg shadow-md hover:bg-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                        className="flex items-center justify-center px-6 py-3 bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 font-bold rounded-xl hover:bg-emerald-600/30 transition-all disabled:opacity-50 text-sm"
                     >
-                        {isSavingNote ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Salvando...</> : <><Save className="h-4 w-4 mr-2" />Salvar Parecer</>}
+                        {isSavingNote ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />SALVANDO...</> : <><Save className="h-4 w-4 mr-2" />SALVAR ALTERAÇÕES</>}
                     </button>
                 </div>
-                <RichTextEditor
-                    value={editableNotaTecnica}
-                    onChange={setEditableNotaTecnica}
-                />
-                <div className="mt-6 flex justify-center">
+
+                <div className="rounded-2xl overflow-hidden border border-white/5 bg-slate-900/50 p-1">
+                    <RichTextEditor
+                        value={editableNotaTecnica}
+                        onChange={setEditableNotaTecnica}
+                    />
+                </div>
+
+                <div className="mt-10 flex justify-center">
                     <button
                         onClick={handleGeneratePdf}
                         disabled={isGeneratingPdf || !editableNotaTecnica}
-                        className="flex items-center justify-center px-6 py-3 bg-zinc-700 text-white font-bold rounded-lg shadow-md hover:bg-zinc-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-base"
+                        className="w-full sm:w-auto flex items-center justify-center px-10 py-5 bg-slate-100 text-slate-900 font-black rounded-2xl shadow-2xl hover:bg-white hover:scale-[1.02] transition-all disabled:opacity-50 text-base uppercase tracking-tighter"
                     >
-                        {isGeneratingPdf ? <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Gerando PDF...</> : <><Download className="h-5 w-5 mr-2" />Download PDF com Anexos</>}
+                        {isGeneratingPdf ? <><Loader2 className="h-5 w-5 mr-4 animate-spin" />Processando PDF...</> : <><Download className="h-5 w-5 mr-4" />Exportar Relatório Final</>}
                     </button>
                 </div>
             </div>

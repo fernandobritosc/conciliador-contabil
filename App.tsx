@@ -33,14 +33,14 @@ const fileToBase64 = (file: File): Promise<string> => {
 };
 
 const createBlankData = (type: 'Relatorio' | 'Guia' | 'Retention' | 'Empenho' | 'Liquidacao') => {
-    switch (type) {
-        case 'Relatorio': return { valorSegurados: 0, valorEmpresa: 0, valorAcidente: 0, deducaoFpas: 0, totalARecolher: 0 };
-        case 'Guia': return { valorSegurados: 0, valorEmpresa: 0, valorRiscoAmbiental: 0, totalGuia: 0 };
-        case 'Retention': return { valorRetido: 0, competencia: '', empresa: '' };
-        case 'Empenho': return { numeroEmpenho: '', valor: 0 };
-        case 'Liquidacao': return { numeroEmpenho: '', valorBruto: 0, salarioFamilia: 0, salarioMaternidade: 0 };
-        default: return {};
-    }
+  switch (type) {
+    case 'Relatorio': return { valorSegurados: 0, valorEmpresa: 0, valorAcidente: 0, deducaoFpas: 0, totalARecolher: 0 };
+    case 'Guia': return { valorSegurados: 0, valorEmpresa: 0, valorRiscoAmbiental: 0, totalGuia: 0 };
+    case 'Retention': return { valorRetido: 0, competencia: '', empresa: '' };
+    case 'Empenho': return { numeroEmpenho: '', valor: 0 };
+    case 'Liquidacao': return { numeroEmpenho: '', valorBruto: 0, salarioFamilia: 0, salarioMaternidade: 0 };
+    default: return {};
+  }
 };
 
 type View = 'new' | 'history' | 'process';
@@ -52,7 +52,7 @@ const App: React.FC = () => {
 
   const [view, setView] = useState<View>('new');
   const [currentStep, setCurrentStep] = useState<Step>('UPLOAD_RH');
-  
+
   const [orgao, setOrgao] = useState('');
   const [competencia, setCompetencia] = useState('');
   const [history, setHistory] = useState<ReconciliationRecord[]>([]);
@@ -63,13 +63,13 @@ const App: React.FC = () => {
   const [empenhoData, setEmpenhoData] = useState<EmpenhoData | null>(null);
   const [liquidacaoData, setLiquidacaoData] = useState<LiquidacaoData | null>(null);
   const [guiaData, setGuiaData] = useState<RhGuiaData | null>(null);
-  
+
   const [rhFiles, setRhFiles] = useState<File[]>([]);
   const [retentionFiles, setRetentionFiles] = useState<File[]>([]);
   const [empenhoFiles, setEmpenhoFiles] = useState<File[]>([]);
   const [liquidacaoFiles, setLiquidacaoFiles] = useState<File[]>([]);
   const [guiaFiles, setGuiaFiles] = useState<File[]>([]);
-  
+
   const [comparisonResult, setComparisonResult] = useState<ComparisonResult | null>(null);
   const [notaTecnicaText, setNotaTecnicaText] = useState<string | null>(null);
 
@@ -110,48 +110,48 @@ const App: React.FC = () => {
       comparison_result: result,
       nota_tecnica: null,
     };
-    
+
     try {
-        const { data, error } = await supabase
-            .from('reconciliacoes')
-            .insert(newRecordData)
-            .select()
-            .single();
+      const { data, error } = await supabase
+        .from('reconciliacoes')
+        .insert(newRecordData)
+        .select()
+        .single();
 
-        if (error) throw error;
+      if (error) throw error;
 
-        setHistory(prev => [data as ReconciliationRecord, ...prev]);
+      setHistory(prev => [data as ReconciliationRecord, ...prev]);
     } catch (err) {
-        console.error("Failed to save reconciliation to Supabase", err);
-        setError("Erro ao salvar a conciliação no banco de dados.");
+      console.error("Failed to save reconciliation to Supabase", err);
+      setError("Erro ao salvar a conciliação no banco de dados.");
     }
   };
 
   const handleSaveNotaTecnica = async (nota: string) => {
     const recordId = viewingRecord?.id || history.find(h => h.comparison_result === comparisonResult)?.id;
     if (!recordId) {
-        console.error("Não foi possível encontrar o ID do registro para salvar a nota.");
-        return;
+      console.error("Não foi possível encontrar o ID do registro para salvar a nota.");
+      return;
     }
 
     try {
-        const { error } = await supabase
-            .from('reconciliacoes')
-            .update({ nota_tecnica: nota })
-            .eq('id', recordId);
+      const { error } = await supabase
+        .from('reconciliacoes')
+        .update({ nota_tecnica: nota })
+        .eq('id', recordId);
 
-        if (error) throw error;
+      if (error) throw error;
 
-        // Update local state to reflect the change immediately
-        setHistory(prev => prev.map(rec => rec.id === recordId ? { ...rec, nota_tecnica: nota } : rec));
-        if (viewingRecord?.id === recordId) {
-            setViewingRecord(prev => prev ? { ...prev, nota_tecnica: nota } : null);
-        }
+      // Update local state to reflect the change immediately
+      setHistory(prev => prev.map(rec => rec.id === recordId ? { ...rec, nota_tecnica: nota } : rec));
+      if (viewingRecord?.id === recordId) {
+        setViewingRecord(prev => prev ? { ...prev, nota_tecnica: nota } : null);
+      }
 
     } catch (err) {
-        console.error("Failed to save note to Supabase", err);
-        // Optionally, show an error to the user
-        alert("Erro ao salvar o parecer técnico.");
+      console.error("Failed to save note to Supabase", err);
+      // Optionally, show an error to the user
+      alert("Erro ao salvar o parecer técnico.");
     }
   };
 
@@ -180,16 +180,16 @@ const App: React.FC = () => {
     } catch (err: any) {
       console.error("Erro detalhado:", err);
       const isQuotaError = err?.message?.includes('Sua cota de uso da API foi excedida');
-      setError(isQuotaError 
-          ? err.message + '\n\nPor favor, preencha os valores manualmente para continuar.'
-          : `Falha ao ler o ${docName}: ${err?.message || "Erro desconhecido"}`
+      setError(isQuotaError
+        ? err.message + '\n\nPor favor, preencha os valores manualmente para continuar.'
+        : `Falha ao ler o ${docName}: ${err?.message || "Erro desconhecido"}`
       );
       setData(createBlankData(docType));
     } finally {
       setIsLoading(false);
     }
   };
-  
+
   const handleRhUpload = createUploadHandler(setRhFiles, setRelatorioData, 'Relatorio', 'Relatório RH');
   const handleRetentionUpload = createUploadHandler(setRetentionFiles, setRetentionData, 'Retention', 'Relatório de Retenção');
   const handleEmpenhoUpload = createUploadHandler(setEmpenhoFiles, setEmpenhoData, 'Empenho', 'Empenho');
@@ -217,14 +217,14 @@ const App: React.FC = () => {
         acidente: { rh: relatorioData.valorAcidente, guia: data.valorRiscoAmbiental, diff: data.valorRiscoAmbiental - relatorioData.valorAcidente, status: Math.abs(data.valorRiscoAmbiental - relatorioData.valorAcidente) < tolerance ? 'MATCH' : 'MISMATCH' },
         total: { rh: relatorioData.totalARecolher, guia: data.totalGuia, diff: data.totalGuia - relatorioData.totalARecolher, status: Math.abs(data.totalGuia - relatorioData.totalARecolher) < tolerance ? 'MATCH' : 'MISMATCH' },
         finalStatus: [
-            Math.abs(retentionData.valorRetido - relatorioData.valorSegurados) < tolerance,
-            Math.abs(empenhoData.valor - retentionData.valorRetido) < tolerance,
-            Math.abs(liquidacaoData.valorBruto - (relatorioData.valorEmpresa + relatorioData.valorAcidente)) < tolerance,
-            Math.abs((liquidacaoData.salarioFamilia + liquidacaoData.salarioMaternidade) - relatorioData.deducaoFpas) < tolerance,
-            Math.abs(data.valorSegurados - relatorioData.valorSegurados) < tolerance,
-            Math.abs(data.valorEmpresa - relatorioData.valorEmpresa) < tolerance,
-            Math.abs(data.valorRiscoAmbiental - relatorioData.valorAcidente) < tolerance,
-            Math.abs(data.totalGuia - relatorioData.totalARecolher) < tolerance,
+          Math.abs(retentionData.valorRetido - relatorioData.valorSegurados) < tolerance,
+          Math.abs(empenhoData.valor - retentionData.valorRetido) < tolerance,
+          Math.abs(liquidacaoData.valorBruto - (relatorioData.valorEmpresa + relatorioData.valorAcidente)) < tolerance,
+          Math.abs((liquidacaoData.salarioFamilia + liquidacaoData.salarioMaternidade) - relatorioData.deducaoFpas) < tolerance,
+          Math.abs(data.valorSegurados - relatorioData.valorSegurados) < tolerance,
+          Math.abs(data.valorEmpresa - relatorioData.valorEmpresa) < tolerance,
+          Math.abs(data.valorRiscoAmbiental - relatorioData.valorAcidente) < tolerance,
+          Math.abs(data.totalGuia - relatorioData.totalARecolher) < tolerance,
         ].every(Boolean) ? 'CONCILIADO' : 'DIVERGENTE'
       };
       setComparisonResult(result);
@@ -232,7 +232,7 @@ const App: React.FC = () => {
       setCurrentStep('COMPARISON');
     }
   };
-  
+
   const generateNotaTecnicaText = async () => {
     const dataToUse = viewingRecord ? viewingRecord.comparison_result : comparisonResult;
     if (!dataToUse) return;
@@ -242,12 +242,12 @@ const App: React.FC = () => {
       setNotaTecnicaText(report);
     } catch (err) { console.error(err); setNotaTecnicaText("Erro ao gerar parecer técnico."); } finally { setIsLoadingNotaTecnica(false); }
   };
-  
+
   const resetAll = (goToNew = true) => {
     setRelatorioData(null); setRetentionData(null); setEmpenhoData(null); setLiquidacaoData(null); setGuiaData(null);
     setRhFiles([]); setRetentionFiles([]); setEmpenhoFiles([]); setLiquidacaoFiles([]); setGuiaFiles([]);
     setComparisonResult(null); setNotaTecnicaText(null); setError(null); setViewingRecord(null);
-    if(goToNew) {
+    if (goToNew) {
       setView('new');
       setOrgao('');
       setCompetencia('');
@@ -257,10 +257,10 @@ const App: React.FC = () => {
   const handleViewHistory = (recordId: string) => {
     const record = history.find(h => h.id === recordId);
     if (record) {
-        setViewingRecord(record);
-        setNotaTecnicaText(record.nota_tecnica);
-        setCurrentStep('COMPARISON');
-        setView('process');
+      setViewingRecord(record);
+      setNotaTecnicaText(record.nota_tecnica);
+      setCurrentStep('COMPARISON');
+      setView('process');
     }
   };
 
@@ -271,11 +271,11 @@ const App: React.FC = () => {
     const res = record.comparison_result;
 
     setRelatorioData({
-        valorSegurados: res.segurados.rh,
-        valorEmpresa: res.empresa.rh,
-        valorAcidente: res.acidente.rh,
-        deducaoFpas: res.deducaoFpas,
-        totalARecolher: res.total.rh,
+      valorSegurados: res.segurados.rh,
+      valorEmpresa: res.empresa.rh,
+      valorAcidente: res.acidente.rh,
+      deducaoFpas: res.deducaoFpas,
+      totalARecolher: res.total.rh,
     });
 
     setRetentionData(res.retentionData || null);
@@ -283,10 +283,10 @@ const App: React.FC = () => {
     setLiquidacaoData(res.liquidacaoData || null);
 
     setGuiaData({
-        valorSegurados: res.segurados.guia,
-        valorEmpresa: res.empresa.guia,
-        valorRiscoAmbiental: res.acidente.guia,
-        totalGuia: res.total.guia,
+      valorSegurados: res.segurados.guia,
+      valorEmpresa: res.empresa.guia,
+      valorRiscoAmbiental: res.acidente.guia,
+      totalGuia: res.total.guia,
     });
 
     setRhFiles([]);
@@ -294,7 +294,7 @@ const App: React.FC = () => {
     setEmpenhoFiles([]);
     setLiquidacaoFiles([]);
     setGuiaFiles([]);
-    
+
     setComparisonResult(null);
     setNotaTecnicaText(null);
     setError(null);
@@ -305,30 +305,39 @@ const App: React.FC = () => {
   };
 
   const renderNewScreen = () => (
-    <div className="bg-white p-6 md:p-8 rounded-xl shadow-lg border border-zinc-200">
-      <div className="flex items-center mb-6">
-        <FileSpreadsheet className="h-8 w-8 text-indigo-600 mr-4" />
+    <div className="glass-card p-10 rounded-[2rem] animate-scale-in max-w-4xl mx-auto">
+      <div className="flex items-center mb-10">
+        <div className="bg-indigo-600/20 p-4 rounded-2xl mr-6 border border-indigo-500/20">
+          <PlusCircle className="h-10 w-10 text-indigo-400" />
+        </div>
         <div>
-          <h2 className="text-2xl font-bold text-zinc-800">Nova Conciliação Previdenciária</h2>
-          <p className="text-sm text-zinc-500">Preencha os campos abaixo para iniciar a análise.</p>
+          <h2 className="text-3xl font-extrabold text-white tracking-tight">Iniciar Auditoria</h2>
+          <p className="text-slate-400 font-medium">Configure os parâmetros básicos para sua nova conciliação.</p>
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
-        <div>
-          <label htmlFor="orgao" className="block text-sm font-medium text-zinc-700 mb-1">Órgão</label>
-          <select id="orgao" value={orgao} onChange={(e) => setOrgao(e.target.value)} className="bg-white text-zinc-800 w-full px-3 py-2 border border-zinc-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            <option value="">Selecione um órgão...</option>
-            {ORGAOS.map(o => <option key={o} value={o}>{o}</option>)}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
+        <div className="space-y-2">
+          <label htmlFor="orgao" className="block text-xs font-bold uppercase tracking-[0.2em] text-indigo-400">Entidade / Órgão</label>
+          <select id="orgao" value={orgao} onChange={(e) => setOrgao(e.target.value)} className="bg-slate-800/50 text-slate-100 w-full px-4 py-3 border border-white/5 rounded-xl shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-500/50 appearance-none cursor-pointer transition-all">
+            <option value="">Selecione a entidade...</option>
+            {ORGAOS.map(o => <option key={o} value={o} className="bg-slate-900">{o}</option>)}
           </select>
         </div>
-        <div>
-          <label htmlFor="competencia" className="block text-sm font-medium text-zinc-700 mb-1">Competência</label>
-          <input type="text" id="competencia" value={competencia} onChange={(e) => setCompetencia(e.target.value)} placeholder="MM/AAAA" className="bg-white text-zinc-800 w-full px-3 py-2 border border-zinc-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+        <div className="space-y-2">
+          <label htmlFor="competencia" className="block text-xs font-bold uppercase tracking-[0.1em] text-indigo-400">Competência (MM/AAAA)</label>
+          <input type="text" id="competencia" value={competencia} onChange={(e) => setCompetencia(e.target.value)} placeholder="01/2026" className="bg-slate-800/50 text-slate-100 w-full px-4 py-3 border border-white/5 rounded-xl shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all" />
         </div>
       </div>
-      <div className="mt-8 flex justify-center">
-        <button onClick={handleStartReconciliation} disabled={!orgao || !competencia} className="w-full md:w-auto flex items-center justify-center px-8 py-3 bg-indigo-600 text-white font-bold rounded-lg shadow-md hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
-          Iniciar Análise
+      <div className="mt-12">
+        <button
+          onClick={handleStartReconciliation}
+          disabled={!orgao || !competencia}
+          className="w-full relative group overflow-hidden px-8 py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-xl hover:shadow-indigo-500/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          <span className="relative z-10 flex items-center justify-center">
+            Configurar Processo <ArrowLeft className="h-5 w-5 ml-2 rotate-180" />
+          </span>
         </button>
       </div>
     </div>
@@ -337,46 +346,74 @@ const App: React.FC = () => {
   const renderHistoryScreen = () => {
     if (isHistoryLoading) {
       return (
-        <div className="flex flex-col items-center justify-center p-12 text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-indigo-600 mb-4" />
-          <p className="text-lg font-medium text-zinc-700">Carregando histórico...</p>
+        <div className="flex flex-col items-center justify-center p-20 animate-fade-in">
+          <div className="relative">
+            <Loader2 className="h-12 w-12 animate-spin text-indigo-400" />
+            <div className="absolute inset-0 blur-lg bg-indigo-500/20 animate-pulse" />
+          </div>
+          <p className="text-slate-400 font-semibold mt-6 tracking-wide uppercase text-xs">Acessando banco de dados...</p>
         </div>
       );
     }
 
     if (dbError) {
       return (
-        <div className="mt-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+        <div className="max-w-2xl mx-auto glass-card border-red-500/20 p-6 rounded-2xl animate-scale-in">
           <div className="flex items-start">
-            <AlertTriangle className="h-5 w-5 mr-3 mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
-              <p className="font-semibold">Erro de Conexão</p>
-              <p className="text-sm mt-1">{dbError}</p>
+            <div className="bg-red-500/10 p-3 rounded-xl mr-4">
+              <AlertTriangle className="h-6 w-6 text-red-400" />
+            </div>
+            <div>
+              <p className="text-white font-bold text-lg">Indisponibilidade de Conexão</p>
+              <p className="text-slate-400 text-sm mt-1">{dbError}</p>
             </div>
           </div>
         </div>
       );
     }
-    
+
     return (
-      <div>
-        <div className="flex items-center mb-6">
-          <History className="h-8 w-8 text-zinc-600 mr-4" />
-          <h2 className="text-2xl font-bold text-zinc-800">Histórico de Conciliações</h2>
+      <div className="max-w-5xl mx-auto animate-fade-in">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center">
+            <div className="bg-slate-800 p-3 rounded-xl mr-4 border border-white/5">
+              <History className="h-6 w-6 text-slate-300" />
+            </div>
+            <h2 className="text-2xl font-bold text-white tracking-tight">Dossiê de Conciliações</h2>
+          </div>
+          <div className="bg-indigo-600/10 px-4 py-1.5 rounded-full border border-indigo-500/20">
+            <span className="text-xs font-bold text-indigo-400">{history.length} REGISTROS</span>
+          </div>
         </div>
-        <div className="space-y-4">
+
+        <div className="grid grid-cols-1 gap-4">
           {history.length > 0 ? history.map(rec => (
-            <div key={rec.id} className="bg-white p-4 rounded-lg shadow-sm border flex items-center justify-between hover:border-indigo-400 hover:shadow-md transition-all">
-              <div>
-                <p className="font-bold text-zinc-800">{rec.orgao}</p>
-                <p className="text-sm text-zinc-500">Competência: {rec.competencia} | Data: {new Date(rec.created_at).toLocaleDateString('pt-BR')}</p>
+            <div key={rec.id} className="glass-card p-5 rounded-2xl flex items-center justify-between group hover:border-indigo-500/30 transition-all duration-300">
+              <div className="flex items-center space-x-6">
+                <div className={`p-3 rounded-xl ${rec.status === 'CONCILIADO' ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
+                  {rec.status === 'CONCILIADO' ? <CheckCircle className="h-6 w-6 text-emerald-400" /> : <AlertTriangle className="h-6 w-6 text-red-400" />}
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-100 group-hover:text-white transition-colors">{rec.orgao}</h3>
+                  <div className="flex items-center space-x-3 text-xs text-slate-400 mt-1 font-medium">
+                    <span className="bg-white/5 px-2 py-0.5 rounded uppercase tracking-wider">REF: {rec.competencia}</span>
+                    <span>•</span>
+                    <span>Finalizado em {new Date(rec.created_at).toLocaleDateString('pt-BR')}</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-4">
-                {rec.status === 'CONCILIADO' ? <span className="flex items-center text-xs font-semibold text-green-700 bg-green-100 px-3 py-1 rounded-full"><CheckCircle className="h-4 w-4 mr-1"/>CONCILIADO</span> : <span className="flex items-center text-xs font-semibold text-red-700 bg-red-100 px-3 py-1 rounded-full"><XCircle className="h-4 w-4 mr-1"/>DIVERGENTE</span>}
-                <button onClick={() => handleViewHistory(rec.id)} className="flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-800"><Eye className="h-4 w-4 mr-1"/>Ver Detalhes</button>
+              <div className="flex items-center gap-6">
+                <button onClick={() => handleViewHistory(rec.id)} className="flex items-center text-xs font-bold uppercase tracking-widest text-indigo-400 hover:text-indigo-300 transition-colors">
+                  Detalhes <Eye className="h-4 w-4 ml-2" />
+                </button>
               </div>
             </div>
-          )) : <p className="text-center text-zinc-500 bg-white p-6 rounded-lg shadow-sm border">Nenhuma conciliação salva.</p>}
+          )) : (
+            <div className="glass-card p-12 rounded-3xl border-dashed border-white/5 text-center">
+              <History className="h-12 w-12 text-slate-600 mx-auto mb-4 opacity-20" />
+              <p className="text-slate-500 font-medium">Nenhum dossiê encontrado no sistema.</p>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -390,17 +427,30 @@ const App: React.FC = () => {
       { step: 'UPLOAD_LIQUIDACAO', title: '4. Nota de Liquidação', description: "Envie a liquidação da parte patronal e deduções.", manualTitle: "Lançamentos - Nota de Liquidação", type: 'Liquidacao', allowMultiple: true, data: liquidacaoData, files: liquidacaoFiles, onFileUpload: handleLiquidacaoUpload, onConfirm: confirmLiquidacaoData, onClear: () => { setLiquidacaoData(null); setLiquidacaoFiles([]); setError(null); }, back: 'UPLOAD_EMPENHO', stepLabel: "4 de 5", section: "Dados da Contabilidade" },
       { step: 'UPLOAD_GUIA', title: '5. Guia de Recolhimento (DARF)', description: "Envie o 'Documento de Arrecadação' (DARF).", manualTitle: "Lançamentos - DARF", type: 'Guia', allowMultiple: true, data: guiaData, files: guiaFiles, onFileUpload: handleGuiaUpload, onConfirm: confirmGuiaData, onClear: () => { setGuiaData(null); setGuiaFiles([]); setError(null); }, back: 'UPLOAD_LIQUIDACAO', stepLabel: "5 de 5", section: "Guia de Recolhimento" },
     ] as const;
-    
+
     const activeStep = steps.find(s => s.step === currentStep);
 
     if (activeStep) {
       return (
-        <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-          <button onClick={() => activeStep.back === 'new' ? setView('new') : setCurrentStep(activeStep.back as Step)} className="mb-4 flex items-center text-zinc-500 hover:text-zinc-800 transition"><ArrowLeft className="h-4 w-4 mr-1" /> Voltar</button>
-          <div className="flex items-center space-x-2 text-sm text-zinc-500 mb-6">
-            <span className="font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">Etapa {activeStep.stepLabel}</span>
-            <span>{activeStep.section}</span>
+        <div className="animate-in fade-in slide-in-from-right-4 duration-300 max-w-4xl mx-auto">
+          <button
+            onClick={() => activeStep.back === 'new' ? setView('new') : setCurrentStep(activeStep.back as Step)}
+            className="mb-8 flex items-center text-slate-400 hover:text-white transition-colors group"
+          >
+            <div className="bg-white/5 p-2 rounded-lg mr-3 group-hover:bg-white/10 transition-colors">
+              <ArrowLeft className="h-4 w-4" />
+            </div>
+            <span className="text-xs font-bold uppercase tracking-widest">Retornar</span>
+          </button>
+
+          <div className="flex items-center space-x-4 mb-10">
+            <div className="bg-indigo-600/20 px-4 py-1.5 rounded-full border border-indigo-500/30">
+              <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">Etapa {activeStep.stepLabel}</span>
+            </div>
+            <div className="h-px w-8 bg-white/10" />
+            <span className="text-sm font-bold text-slate-300 uppercase tracking-tight">{activeStep.section}</span>
           </div>
+
           <StepUpload {...activeStep} isLoading={isLoading} error={error} blankDataFactory={() => createBlankData(activeStep.type)} />
         </div>
       );
@@ -409,8 +459,16 @@ const App: React.FC = () => {
     if (currentStep === 'COMPARISON' && (comparisonResult || viewingRecord)) {
       const finalDataToShow = viewingRecord ? viewingRecord.comparison_result : comparisonResult!;
       return (
-        <div className="animate-in fade-in slide-in-from-bottom-8 duration-500">
-          <button onClick={() => { if (viewingRecord) { setViewingRecord(null); setView('history'); } else { setCurrentStep('UPLOAD_GUIA'); } }} className="mb-4 flex items-center text-zinc-500 hover:text-zinc-800 transition"><ArrowLeft className="h-4 w-4 mr-1" /> Voltar</button>
+        <div className="animate-in fade-in slide-in-from-bottom-8 duration-500 max-w-6xl mx-auto">
+          <button
+            onClick={() => { if (viewingRecord) { setViewingRecord(null); setView('history'); } else { setCurrentStep('UPLOAD_GUIA'); } }}
+            className="mb-8 flex items-center text-slate-400 hover:text-white transition-colors group"
+          >
+            <div className="bg-white/5 p-2 rounded-lg mr-3 group-hover:bg-white/10 transition-colors">
+              <ArrowLeft className="h-4 w-4" />
+            </div>
+            <span className="text-xs font-bold uppercase tracking-widest">{viewingRecord ? "Voltar ao Dossiê" : "Retornar ao Upload"}</span>
+          </button>
           <ComparisonTable
             finalData={finalDataToShow}
             onGenerateNotaTecnica={generateNotaTecnicaText}
@@ -425,16 +483,16 @@ const App: React.FC = () => {
         </div>
       );
     }
-    
+
     return null;
   };
 
   return (
-    <div className="flex h-screen bg-zinc-50 font-sans">
+    <div className="flex h-screen bg-[#0b0f19] font-sans text-slate-200">
       <Sidebar currentView={view} setView={setView} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header orgao={view === 'process' ? orgao : undefined} competencia={view === 'process' ? competencia : undefined} />
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-zinc-50 p-4 md:p-8">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8 custom-scrollbar">
           {view === 'new' && renderNewScreen()}
           {view === 'history' && renderHistoryScreen()}
           {view === 'process' && renderProcessScreen()}

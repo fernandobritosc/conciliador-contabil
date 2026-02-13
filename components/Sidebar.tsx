@@ -17,41 +17,58 @@ const NavLink: React.FC<{
   return (
     <button
       onClick={onClick}
-      className={`flex items-center w-full px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
-        isActive
-          ? 'bg-indigo-600 text-white'
-          : 'text-zinc-300 hover:bg-zinc-700 hover:text-white'
-      }`}
+      className={`nav-pill flex items-center w-full group ${isActive
+          ? 'nav-pill-active'
+          : 'text-slate-400 hover:text-white hover:bg-white/5'
+        }`}
     >
-      <Icon className="h-5 w-5 mr-3" />
-      <span>{label}</span>
+      <Icon className={`h-5 w-5 mr-3 transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
+      <span className="tracking-tight font-medium">{label}</span>
+      {isActive && <div className="absolute left-0 w-1 h-4 bg-indigo-500 rounded-full" />}
     </button>
   );
 };
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentView, setView }) => {
   return (
-    <aside className="w-64 bg-zinc-800 text-white flex-col p-4 hidden md:flex">
-      <div className="flex items-center space-x-3 mb-8 px-2">
-        <div className="bg-indigo-600 p-2 rounded-lg">
+    <aside className="w-64 glass-effect border-r border-white/5 text-white flex-col p-6 hidden md:flex transition-all">
+      <div className="flex items-center space-x-3 mb-12 px-2">
+        <div className="bg-gradient-to-br from-indigo-500 to-cyan-400 p-2.5 rounded-xl neon-glow">
           <BotMessageSquare className="h-6 w-6 text-white" />
         </div>
-        <h1 className="text-xl font-bold">Conciliador</h1>
+        <div>
+          <h1 className="text-xl font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
+            AUDITOR
+          </h1>
+          <p className="text-[10px] uppercase font-bold tracking-[0.2em] text-indigo-400 mt-[-4px]">
+            IA PROFISSIONAL
+          </p>
+        </div>
       </div>
-      <nav className="flex flex-col space-y-2">
+      <nav className="flex flex-col space-y-3">
         <NavLink
           icon={PlusCircle}
           label="Nova Conciliação"
-          isActive={currentView === 'new'}
+          isActive={currentView === 'new' || currentView === 'process'}
           onClick={() => setView('new')}
         />
         <NavLink
           icon={History}
-          label="Histórico"
+          label="Histórico Geral"
           isActive={currentView === 'history'}
           onClick={() => setView('history')}
         />
       </nav>
+
+      <div className="mt-auto pt-6 border-t border-white/5">
+        <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-600/10 to-transparent border border-indigo-500/10">
+          <p className="text-xs text-indigo-300 font-semibold mb-1">Status do Sistema</p>
+          <div className="flex items-center space-x-2">
+            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+            <span className="text-[10px] text-slate-400 font-medium">IA ONLINE</span>
+          </div>
+        </div>
+      </div>
     </aside>
   );
 };

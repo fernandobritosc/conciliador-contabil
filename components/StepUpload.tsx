@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, FileText, Check, Edit2, Save, X, AlertCircle, Trash2, PlusCircle, Paperclip, ScanLine } from 'lucide-react';
+import { Upload, FileText, Check, Edit2, Save, X, AlertCircle, Trash2, PlusCircle, Paperclip, ScanLine, ArrowLeft } from 'lucide-react';
 
 interface ManualEntry {
     id: number;
@@ -38,9 +38,9 @@ const getFieldsForType = (type: 'Relatorio' | 'Guia' | 'Retention' | 'Empenho' |
             { key: 'valorRiscoAmbiental', label: 'Cód 1646 (RAT)', type: 'number' },
             { key: 'totalGuia', label: 'Total da Guia', type: 'number', isCalculated: true },
         ];
-        case 'Retention': return [ { key: 'valorRetido', label: 'Valor Retido (INSS)', type: 'number', isTotal: true }, { key: 'competencia', label: 'Competência', type: 'text' }, { key: 'empresa', label: 'Empresa', type: 'text' }, ];
-        case 'Empenho': return [ { key: 'valor', label: 'Valor do Empenho', type: 'number', isTotal: true }, { key: 'numeroEmpenho', label: 'Número do Empenho', type: 'text' }, ];
-        case 'Liquidacao': return [ { key: 'valorBruto', label: 'Valor Bruto', type: 'number', isTotal: true }, { key: 'numeroEmpenho', label: 'Nº de Empenho', type: 'text' }, { key: 'salarioFamilia', label: 'Salário Família', type: 'number' }, { key: 'salarioMaternidade', label: 'Salário Maternidade', type: 'number' }, ];
+        case 'Retention': return [{ key: 'valorRetido', label: 'Valor Retido (INSS)', type: 'number', isTotal: true }, { key: 'competencia', label: 'Competência', type: 'text' }, { key: 'empresa', label: 'Empresa', type: 'text' },];
+        case 'Empenho': return [{ key: 'valor', label: 'Valor do Empenho', type: 'number', isTotal: true }, { key: 'numeroEmpenho', label: 'Número do Empenho', type: 'text' },];
+        case 'Liquidacao': return [{ key: 'valorBruto', label: 'Valor Bruto', type: 'number', isTotal: true }, { key: 'numeroEmpenho', label: 'Nº de Empenho', type: 'text' }, { key: 'salarioFamilia', label: 'Salário Família', type: 'number' }, { key: 'salarioMaternidade', label: 'Salário Maternidade', type: 'number' },];
         default: return [];
     }
 };
@@ -51,7 +51,7 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
     const [isEditing, setIsEditing] = useState(false);
     const [mode, setMode] = useState<'choice' | 'ia' | 'manual'>('choice');
     const [manualEntries, setManualEntries] = useState<ManualEntry[]>([]);
-    
+
     const fields = getFieldsForType(type);
 
     const formatValue = (val: any, fieldType: string) => {
@@ -68,7 +68,7 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
         });
         return values;
     };
-    
+
     useEffect(() => {
         if (data) {
             setEditableData(data);
@@ -81,7 +81,7 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
             setManualEntries([]);
         }
     }, [data, error]);
-    
+
     const parse = (val: string) => parseFloat(String(val || '0').replace(/\./g, '').replace(',', '.')) || 0;
 
     const handleAutoSum = (currentFormValues: Record<string, string>): Record<string, string> => {
@@ -95,7 +95,7 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
     const handleInputChange = (id: number, key: string, value: string) => {
         setManualEntries(prev => prev.map(entry => entry.id === id ? { ...entry, formValues: handleAutoSum({ ...entry.formValues, [key]: value }) } : entry));
     };
-    
+
     const handleFileChange = (id: number, file: File | null) => {
         setManualEntries(prev => prev.map(entry => entry.id === id ? { ...entry, file } : entry));
     };
@@ -106,12 +106,12 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
     };
 
     const removeEntry = (id: number) => setManualEntries(prev => prev.filter(entry => entry.id !== id));
-    
+
     const handleConfirm = () => {
         if (mode === 'manual') {
             const aggregatedData = blankDataFactory();
             const allFiles: File[] = [];
-            
+
             manualEntries.forEach(entry => {
                 fields.forEach(field => {
                     if (field.type === 'number') {
@@ -125,7 +125,7 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
             onConfirm(aggregatedData, allFiles);
         } else {
             const finalData = blankDataFactory();
-             fields.forEach(field => {
+            fields.forEach(field => {
                 const value = isEditing ? formValues[field.key] : editableData[field.key];
                 if (field.type === 'number') finalData[field.key] = typeof value === 'string' ? parse(value) : value;
                 else finalData[field.key] = value;
@@ -144,7 +144,7 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
     const manualTotals = React.useMemo(() => {
         const totals: Record<string, number> = {};
         const totalizableFields = fields.filter(f => f.type === 'number');
-        
+
         totalizableFields.forEach(field => {
             totals[field.key] = manualEntries.reduce((acc, entry) => acc + parse(entry.formValues[field.key]), 0);
         });
@@ -152,139 +152,291 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
     }, [manualEntries, fields]);
 
     if (mode === 'choice' && !isLoading) return (
-        <div className="w-full max-w-2xl mx-auto text-center">
-            <h2 className="text-2xl font-bold text-zinc-800">{title}</h2>
-            <p className="text-zinc-600 mt-2">{description}</p>
-            <div className="bg-white border border-zinc-200 rounded-xl p-8 shadow-lg flex flex-col md:flex-row gap-6 mt-6">
-                <div className="flex-1 flex flex-col items-center p-6 bg-zinc-50 rounded-lg border border-zinc-200">
-                    <ScanLine className="h-10 w-10 text-indigo-600 mb-4" />
-                    <h3 className="font-bold text-lg text-zinc-800 mb-2">Extrair de Documento</h3>
-                    <p className="text-sm text-zinc-500 mb-6 text-center">Envie um PDF ou imagem para extração automática.</p>
-                    <button onClick={handleIAMode} className="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition w-full">Usar Extração</button>
-                </div>
-                <div className="flex-1 flex flex-col items-center p-6 bg-zinc-50 rounded-lg border border-zinc-200">
-                    <Edit2 className="h-10 w-10 text-green-600 mb-4" />
-                    <h3 className="font-bold text-lg text-zinc-800 mb-2">Inserir Manualmente</h3>
-                    <p className="text-sm text-zinc-500 mb-6 text-center">Insira os valores diretamente nos campos do formulário.</p>
-                    <button onClick={handleManualMode} className="px-6 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition w-full">Modo Manual</button>
-                </div>
+        <div className="w-full max-w-4xl mx-auto flex flex-col items-center">
+            <div className="text-center mb-10">
+                <h2 className="text-3xl font-black text-white tracking-tighter uppercase sm:text-4xl">{title}</h2>
+                <div className="h-1 w-20 bg-indigo-500 mx-auto mt-4 rounded-full" />
+                <p className="text-slate-400 mt-6 font-medium max-w-lg mx-auto">{description}</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
+                <button
+                    onClick={handleIAMode}
+                    className="group relative glass-card p-10 rounded-3xl border-white/5 hover:border-indigo-500/50 hover:shadow-indigo-500/10 transition-all duration-500 overflow-hidden text-left"
+                >
+                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-20 transition-opacity">
+                        <ScanLine className="h-24 w-24 text-indigo-400" />
+                    </div>
+                    <div className="bg-indigo-600/20 p-4 rounded-2xl w-fit mb-6 border border-indigo-500/20 group-hover:scale-110 transition-transform">
+                        <ScanLine className="h-10 w-10 text-indigo-400" />
+                    </div>
+                    <h3 className="font-black text-xl text-white mb-3">Extração por Inteligência Artificial</h3>
+                    <p className="text-sm text-slate-400 leading-relaxed mb-8">Processamento neural e OCR avançado. Basta enviar o PDF para conferência automática.</p>
+                    <div className="flex items-center text-xs font-bold text-indigo-400 uppercase tracking-widest">
+                        Ativar Scanner <ArrowLeft className="h-4 w-4 ml-2 rotate-180" />
+                    </div>
+                </button>
+
+                <button
+                    onClick={handleManualMode}
+                    className="group relative glass-card p-10 rounded-3xl border-white/5 hover:border-emerald-500/50 hover:shadow-emerald-500/10 transition-all duration-500 overflow-hidden text-left"
+                >
+                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-20 transition-opacity">
+                        <Edit2 className="h-24 w-24 text-emerald-400" />
+                    </div>
+                    <div className="bg-emerald-600/20 p-4 rounded-2xl w-fit mb-6 border border-emerald-500/20 group-hover:scale-110 transition-transform">
+                        <Edit2 className="h-10 w-10 text-emerald-400" />
+                    </div>
+                    <h3 className="font-black text-xl text-white mb-3">Inclusão de Dados Manual</h3>
+                    <p className="text-sm text-slate-400 leading-relaxed mb-8">Controle total sobre o lançamento. Ideal para correções pontuais ou guias avulsas.</p>
+                    <div className="flex items-center text-xs font-bold text-emerald-400 uppercase tracking-widest">
+                        Lançamento Direto <ArrowLeft className="h-4 w-4 ml-2 rotate-180" />
+                    </div>
+                </button>
             </div>
         </div>
     );
-    
+
     if (mode === 'ia' && !data && !isLoading) return (
-        <div className="w-full max-w-2xl mx-auto">
-            <h2 className="text-2xl font-bold text-zinc-800 text-center">{title}</h2>
-            <p className="text-zinc-600 text-center mt-2 mb-6">{description}</p>
-            <div onDragOver={e => e.preventDefault()} onDrop={e => {e.preventDefault(); onFileUpload(e.dataTransfer.files);}} className="border-2 border-dashed border-zinc-300 rounded-xl p-12 text-center hover:border-indigo-500 hover:bg-indigo-50 transition-colors cursor-pointer bg-white">
-                <div className="flex flex-col items-center">
-                    <Upload className="h-8 w-8 text-indigo-600 bg-indigo-100 p-4 rounded-full box-content mb-4" />
-                    <p className="text-lg font-medium text-zinc-700 mb-2">Arraste e solte o arquivo aqui</p>
-                    <p className="text-sm text-zinc-500 mb-6">ou clique para selecionar</p>
-                    <label className="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 cursor-pointer transition">
-                        Selecionar Arquivo
+        <div className="w-full max-w-3xl mx-auto flex flex-col items-center">
+            <div className="text-center mb-10">
+                <h2 className="text-3xl font-black text-white tracking-tighter uppercase mb-2">{title}</h2>
+                <p className="text-slate-400 font-medium">{description}</p>
+            </div>
+
+            <div
+                onDragOver={e => e.preventDefault()}
+                onDrop={e => { e.preventDefault(); onFileUpload(e.dataTransfer.files); }}
+                className="w-full group relative glass-card rounded-[3rem] p-4 cursor-pointer hover:border-indigo-500/30 transition-all duration-700"
+            >
+                <div className="border-2 border-dashed border-white/5 rounded-[2.5rem] p-16 flex flex-col items-center group-hover:bg-indigo-500/[0.03] transition-colors">
+                    <div className="relative mb-10">
+                        <div className="absolute inset-0 bg-indigo-500/20 blur-2xl rounded-full scale-150 group-hover:scale-[2] transition-transform duration-700" />
+                        <div className="relative bg-gradient-to-br from-indigo-500 to-cyan-400 p-6 rounded-3xl shadow-2xl group-hover:rotate-6 transition-transform">
+                            <Upload className="h-10 w-10 text-white" />
+                        </div>
+                    </div>
+
+                    <h3 className="text-2xl font-bold text-white mb-2 tracking-tight group-hover:text-indigo-300 transition-colors">Arraste seu documento aqui</h3>
+                    <p className="text-slate-400 font-medium mb-10">Suporta PDF e imagens de alta resolução.</p>
+
+                    <label className="relative overflow-hidden px-10 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl hover:shadow-indigo-500/20 transition-all cursor-pointer group-active:scale-95">
+                        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-cyan-500 opacity-0 hover:opacity-100 transition-opacity" />
+                        <span className="relative z-10 flex items-center tracking-tighter text-lg uppercase">
+                            Procurar Arquivo <Paperclip className="h-5 w-5 ml-2" />
+                        </span>
                         <input type="file" className="hidden" accept=".pdf,image/*" multiple={false} onChange={(e) => e.target.files && onFileUpload(e.target.files)} />
                     </label>
                 </div>
             </div>
         </div>
     );
-    
+
     if (isLoading) return <div className="flex flex-col items-center justify-center p-12"><div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-600 mb-4"></div><p className="text-lg font-medium text-zinc-700 animate-pulse">Analisando documento...</p><p className="text-sm text-zinc-500 mt-2">Isso pode levar alguns segundos...</p></div>;
 
     if (error && mode === 'ia' && !data) return (
         <div className="w-full max-w-2xl mx-auto">
-           <div className="mt-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+            <div className="mt-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
                 <div className="flex items-start">
                     <AlertCircle className="h-5 w-5 mr-3 mt-0.5 flex-shrink-0" />
                     <div className="flex-1"><p className="font-semibold">Ocorreu um erro</p><div className="text-sm mt-2 space-y-1">{error.split('\n').map((line, i) => (<p key={i}>{line}</p>))}</div></div>
                 </div>
             </div>
             <div className="mt-4 flex justify-center"><button onClick={onClear} className="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition">Tentar Novamente</button></div>
-       </div>
+        </div>
     );
 
     return (
-      <div className="w-full max-w-3xl mx-auto">
-        {error && !data && <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-lg"><div className="flex items-start"><AlertCircle className="h-5 w-5 mr-3 mt-0.5 flex-shrink-0" /><div className="flex-1"><p className="font-semibold">Atenção</p><div className="text-sm mt-2 space-y-1">{error.split('\n').map((l, i) => (<p key={i}>{l}</p>))}</div></div></div></div>}
-        <div className="bg-white rounded-xl shadow-lg border border-zinc-200">
-            <div className="bg-zinc-50 p-4 border-b border-zinc-200 flex justify-between items-center"><h3 className="font-semibold text-lg text-zinc-800 flex items-center"><FileText className="h-5 w-5 mr-2 text-indigo-600" />{mode === 'manual' ? manualTitle : `Dados Extraídos - ${type}`}</h3><button onClick={onClear} className="text-sm text-red-600 hover:text-red-800 font-medium flex items-center"><Trash2 className="h-4 w-4 mr-1" />Limpar</button></div>
-            
-            {mode === 'ia' && files.length > 0 && (
-                <div className="p-3 text-sm text-zinc-600 bg-zinc-100 border-b border-zinc-200">
-                    <strong>Arquivos Anexados:</strong>
-                    <ul className="list-disc list-inside ml-2 mt-1">
-                        {files.map((file, index) => (
-                            <li key={index} className="truncate" title={file.name}>{file.name}</li>
-                        ))}
-                    </ul>
+        <div className="w-full max-w-4xl mx-auto">
+            {error && !data && (
+                <div className="mb-6 animate-scale-in">
+                    <div className="glass-card border-yellow-500/20 p-4 rounded-2xl flex items-start">
+                        <AlertCircle className="h-5 w-5 text-yellow-400 mr-4 mt-1" />
+                        <div>
+                            <p className="font-bold text-yellow-500 uppercase text-xs tracking-widest">Aviso de Auditoria</p>
+                            <p className="text-slate-400 text-sm mt-1">{error}</p>
+                        </div>
+                    </div>
                 </div>
             )}
-            
-            <div className="p-6">
-                {mode === 'ia' && data && (
-                    <div className="flex justify-end items-center gap-2 mb-4">
-                        <button 
-                            onClick={() => { if (window.confirm("Isso limpará os dados desta etapa e permitirá um novo envio. Deseja continuar?")) { onClear(); } }}
-                            className="flex items-center text-sm font-medium text-zinc-600 hover:text-red-600 px-3 py-1 rounded-md hover:bg-red-50 transition"
-                            title={allowMultiple ? "Limpar todos os lançamentos e começar de novo" : "Substituir o arquivo atual"}
-                        >
-                            <Trash2 className="h-4 w-4 mr-1" />
-                            {allowMultiple ? "Refazer Lançamentos" : "Trocar Arquivo"}
-                        </button>
 
-                        {!allowMultiple && (
-                            !isEditing ? (
-                                <button onClick={() => setIsEditing(true)} className="flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-800 px-3 py-1 rounded-md hover:bg-indigo-50 transition">
-                                    <Edit2 className="h-4 w-4 mr-1" />Editar Valores
-                                </button>
-                            ) : (
-                                <button onClick={() => setIsEditing(false)} className="flex items-center text-sm font-medium text-green-600 hover:text-green-800 px-3 py-1 rounded-md hover:bg-green-50 transition">
-                                    <Save className="h-4 w-4 mr-1" />Salvar Valores
-                                </button>
-                            )
-                        )}
+            <div className="glass-card rounded-[2.5rem] overflow-hidden border-white/10 shadow-2xl">
+                <div className="bg-white/5 p-6 border-b border-white/10 flex justify-between items-center sm:px-10">
+                    <div className="flex items-center space-x-3">
+                        <div className="bg-indigo-600/20 p-2 rounded-xl border border-indigo-500/20">
+                            <FileText className="h-5 w-5 text-indigo-400" />
+                        </div>
+                        <h3 className="font-bold text-lg text-white tracking-tight">
+                            {mode === 'manual' ? manualTitle : `Diagnóstico Extraído`}
+                        </h3>
+                    </div>
+                    <button onClick={onClear} className="text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-300 transition-colors flex items-center">
+                        <Trash2 className="h-3 w-3 mr-2" /> Limpar Etapa
+                    </button>
+                </div>
+
+                {mode === 'ia' && files.length > 0 && (
+                    <div className="px-10 py-3 text-[10px] text-slate-500 bg-white/[0.02] border-b border-white/5 flex items-center space-x-4">
+                        <span className="font-bold text-slate-400 uppercase tracking-tighter">ANEXOS:</span>
+                        <div className="flex gap-4 overflow-hidden">
+                            {files.map((file, index) => (
+                                <div key={index} className="flex items-center space-x-1 truncate max-w-[200px]">
+                                    <Paperclip className="h-3 w-3" />
+                                    <span className="truncate">{file.name}</span>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 )}
-                
-                {mode === 'ia' && !isEditing && <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{fields.map(f => <div key={f.key} className="bg-zinc-50 p-4 rounded-lg border"><label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1">{f.label}</label><div className="text-xl font-bold text-zinc-800 pl-1">{formatValue(editableData?.[f.key], f.type)}</div></div>)}</div>}
-                {mode === 'ia' && isEditing && <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{fields.map(f => <div key={f.key} className="bg-zinc-50 p-4 rounded-lg border"><label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1">{f.label}</label><div className="relative">{f.type === 'number' && <span className="absolute left-3 top-2 text-zinc-500">R$</span>}<input type="text" readOnly={f.isCalculated} value={formValues[f.key] || ''} onChange={(e) => setFormValues(handleAutoSum({...formValues, [f.key]: e.target.value}))} className={`w-full py-1.5 border border-indigo-300 rounded focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white text-zinc-800 ${f.type === 'number' ? 'pl-8 pr-3' : 'px-3'} ${f.isCalculated ? 'bg-zinc-100' : ''}`} /></div></div>)}</div>}
-                
-                {mode === 'manual' && (
-                    <div className="space-y-6">
-                        {manualEntries.map((entry, index) => (
-                            <div key={entry.id} className="p-4 border border-zinc-200 rounded-lg bg-zinc-50 relative">
-                                <div className="flex justify-between items-center mb-3">
-                                    <h4 className="font-bold text-zinc-700">Lançamento #{index + 1}</h4>
-                                    {manualEntries.length > 1 && <button onClick={() => removeEntry(entry.id)} className="text-red-500 hover:text-red-700"><Trash2 className="h-4 w-4" /></button>}
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {fields.map(f => <div key={f.key}><label className="block text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-1">{f.label}</label><div className="relative">{f.type === 'number' && <span className="absolute left-3 top-2 text-zinc-500">R$</span>}<input type="text" readOnly={f.isCalculated} value={entry.formValues[f.key] || ''} onChange={(e) => handleInputChange(entry.id, f.key, e.target.value)} className={`w-full py-1.5 border border-zinc-300 rounded focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white text-zinc-800 ${f.type === 'number' ? 'pl-8 pr-3' : 'px-3'} ${f.isCalculated ? 'bg-zinc-100' : ''}`} /></div></div>)}
-                                </div>
-                                <div className="mt-4">
-                                    <label className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-800 cursor-pointer font-medium"><Paperclip className="h-4 w-4" /><span>{entry.file ? entry.file.name : "Anexar PDF ou Imagem"}</span><input type="file" className="hidden" onChange={e => handleFileChange(entry.id, e.target.files ? e.target.files[0] : null)} /></label>
+
+                <div className="p-8 sm:p-12">
+                    {mode === 'ia' && data && (
+                        <div
+                            onDragOver={e => e.preventDefault()}
+                            onDrop={e => { e.preventDefault(); onFileUpload(e.dataTransfer.files); }}
+                            className="relative group animate-fade-in"
+                        >
+                            <div className="flex justify-between items-center mb-10">
+                                <h4 className="text-xs font-black uppercase tracking-[0.3em] text-indigo-400">Campos Reconhecidos</h4>
+                                <div className="flex items-center space-x-3">
+                                    <label className="flex items-center text-[10px] font-black uppercase tracking-widest text-indigo-400 hover:text-indigo-300 px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 transition-all cursor-pointer">
+                                        <Upload className="h-3 w-3 mr-2" /> Substituir Fonte
+                                        <input type="file" className="hidden" accept=".pdf,image/*" onChange={(e) => e.target.files && onFileUpload(e.target.files)} />
+                                    </label>
+
+                                    {!allowMultiple && (
+                                        !isEditing ? (
+                                            <button onClick={() => setIsEditing(true)} className="flex items-center text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white px-4 py-2 rounded-xl bg-white/5 border border-white/10 transition-all">
+                                                <Edit2 className="h-3 w-3 mr-2" />Editar
+                                            </button>
+                                        ) : (
+                                            <button onClick={() => setIsEditing(false)} className="flex items-center text-[10px] font-black uppercase tracking-widest text-emerald-400 hover:text-emerald-300 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 transition-all">
+                                                <Save className="h-3 w-3 mr-2" />Salvar
+                                            </button>
+                                        )
+                                    )}
                                 </div>
                             </div>
-                        ))}
-                        {allowMultiple && <div className="flex justify-center mt-4"><button onClick={addEntry} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition"><PlusCircle className="h-5 w-5" />Adicionar Lançamento</button></div>}
-                        
-                        {manualEntries.length > 0 && (
-                            <div className="mt-6 p-4 bg-indigo-50 border-t-4 border-indigo-500 rounded-b-lg">
-                                <h4 className="text-lg font-bold text-zinc-800 mb-2">Totais desta Etapa</h4>
-                                <div className="grid grid-cols-2 gap-4 text-sm">
-                                    {fields.filter(f => f.type === 'number').map(f => (
-                                        <div key={f.key} className="flex justify-between items-baseline"><span className="text-zinc-600">{f.label}:</span><span className="font-bold text-zinc-800 text-base">{Number(manualTotals[f.key]).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></div>
+
+                            {!isEditing && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {fields.map(f => (
+                                        <div key={f.key} className="glass-card p-6 rounded-2xl border-white/5 group-hover:border-indigo-500/20 transition-all">
+                                            <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-3 opacity-60">{f.label}</label>
+                                            <div className="text-2xl font-black text-white flex items-baseline">
+                                                {f.type === 'number' && <span className="text-sm font-normal text-slate-500 mr-2">R$</span>}
+                                                {formatValue(editableData?.[f.key], f.type)}
+                                            </div>
+                                        </div>
                                     ))}
                                 </div>
-                            </div>
-                        )}
+                            )}
+
+                            {isEditing && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {fields.map(f => (
+                                        <div key={f.key} className="glass-card p-6 rounded-2xl border-indigo-500/30 bg-indigo-500/[0.02]">
+                                            <label className="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-3">{f.label}</label>
+                                            <div className="relative">
+                                                {f.type === 'number' && <span className="absolute left-3 top-3 text-slate-500 text-sm">R$</span>}
+                                                <input
+                                                    type="text"
+                                                    readOnly={f.isCalculated}
+                                                    value={formValues[f.key] || ''}
+                                                    onChange={(e) => setFormValues(handleAutoSum({ ...formValues, [f.key]: e.target.value }))}
+                                                    className={`w-full py-2 bg-transparent border-b-2 border-white/10 focus:border-indigo-500 focus:outline-none text-white text-xl font-bold transition-colors ${f.type === 'number' ? 'pl-8' : ''} ${f.isCalculated ? 'text-slate-500' : ''}`}
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {mode === 'manual' && (
+                        <div className="space-y-8">
+                            {manualEntries.map((entry, index) => (
+                                <div key={entry.id} className="glass-card p-8 rounded-3xl border-white/5 relative bg-white/[0.01]">
+                                    <div className="flex justify-between items-center mb-8">
+                                        <div className="flex items-center space-x-3">
+                                            <div className="h-6 w-1 bg-emerald-500 rounded-full" />
+                                            <h4 className="font-black text-white uppercase tracking-tighter">Lançamento #{index + 1}</h4>
+                                        </div>
+                                        {manualEntries.length > 1 && (
+                                            <button onClick={() => removeEntry(entry.id)} className="text-red-400 hover:text-red-300 transition-colors">
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        {fields.map(f => (
+                                            <div key={f.key}>
+                                                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">{f.label}</label>
+                                                <div className="relative">
+                                                    {f.type === 'number' && <span className="absolute left-0 top-2 text-slate-600 font-bold">R$</span>}
+                                                    <input
+                                                        type="text"
+                                                        readOnly={f.isCalculated}
+                                                        value={entry.formValues[f.key] || ''}
+                                                        onChange={(e) => handleInputChange(entry.id, f.key, e.target.value)}
+                                                        className={`w-full py-2 bg-transparent border-b border-white/10 focus:border-emerald-500 focus:outline-none text-white font-bold transition-all ${f.type === 'number' ? 'pl-8' : ''} ${f.isCalculated ? 'opacity-40' : ''}`}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="mt-8 pt-6 border-t border-white/5">
+                                        <label className="flex items-center space-x-3 text-[10px] font-black uppercase tracking-widest text-indigo-400 hover:text-indigo-300 cursor-pointer group w-fit">
+                                            <div className="bg-indigo-500/10 p-2 rounded-lg group-hover:bg-indigo-500/20 transition-colors">
+                                                <Paperclip className="h-4 w-4" />
+                                            </div>
+                                            <span>{entry.file ? entry.file.name : "Anexar Comprovante"}</span>
+                                            <input type="file" className="hidden" onChange={e => handleFileChange(entry.id, e.target.files ? e.target.files[0] : null)} />
+                                        </label>
+                                    </div>
+                                </div>
+                            ))}
+
+                            {allowMultiple && (
+                                <div className="flex justify-center mt-6">
+                                    <button onClick={addEntry} className="flex items-center space-x-2 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-indigo-400 bg-indigo-500/5 rounded-xl border border-indigo-500/20 hover:bg-indigo-500/10 transition-all">
+                                        <PlusCircle className="h-4 w-4" /> <span>Novo Lançamento</span>
+                                    </button>
+                                </div>
+                            )}
+
+                            {manualEntries.length > 0 && (
+                                <div className="mt-12 p-8 bg-indigo-500/5 rounded-[2rem] border border-indigo-500/10">
+                                    <h4 className="text-xs font-black text-indigo-400 uppercase tracking-[0.3em] mb-6">Consolidado da Etapa</h4>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                        {fields.filter(f => f.type === 'number').map(f => (
+                                            <div key={f.key} className="flex justify-between items-center p-3 border-b border-white/5">
+                                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{f.label}</span>
+                                                <span className="font-black text-white font-mono">{Number(manualTotals[f.key]).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    <div className="mt-16 flex justify-center">
+                        <button
+                            onClick={handleConfirm}
+                            disabled={mode === 'manual' && manualEntries.length === 0}
+                            className="group relative overflow-hidden flex items-center justify-center px-12 py-5 bg-emerald-600 text-white font-black rounded-[1.5rem] shadow-2xl hover:shadow-emerald-500/20 transition-all text-lg w-full md:w-auto disabled:opacity-20 uppercase tracking-tighter"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <span className="relative z-10 flex items-center">
+                                <Check className="h-6 w-6 mr-3" /> Confirmar Auditoria
+                            </span>
+                        </button>
                     </div>
-                )}
-                
-                <div className="mt-8 flex justify-center"><button onClick={handleConfirm} disabled={mode === 'manual' && manualEntries.length === 0} className="flex items-center justify-center px-8 py-3 bg-green-600 text-white font-bold rounded-full shadow-lg hover:bg-green-700 hover:shadow-xl transform hover:-translate-y-0.5 transition-all text-lg w-full md:w-auto disabled:opacity-50 disabled:cursor-not-allowed"><Check className="h-6 w-6 mr-2" />Confirmar e Continuar</button></div>
+                </div>
             </div>
         </div>
-      </div>
     );
 };
 

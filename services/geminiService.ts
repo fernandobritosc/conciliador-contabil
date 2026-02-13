@@ -76,7 +76,7 @@ export async function extractData(
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: { parts: [textPart, imagePart] },
     });
 
@@ -116,7 +116,7 @@ export const generateNotaTecnica = async (finalData: ComparisonResult): Promise<
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   if (!apiKey) throw new Error("API Key is required. Please check your environment configuration.");
   const ai = new GoogleGenAI({ apiKey });
-  const model = 'gemini-3-pro-preview';
+  const model = 'gemini-1.5-pro';
 
   const format = (value: number) => value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
