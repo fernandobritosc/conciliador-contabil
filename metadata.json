@@ -1,0 +1,5 @@
+{
+  "name": "Conciliador Contábil",
+  "description": "Uma aplicação para automatizar a conferência de obrigações patronais entre relatórios do RH e da Contabilidade, utilizando tecnologia para extrair e comparar dados de PDFs.",
+  "requestFramePermissions": []
+}
