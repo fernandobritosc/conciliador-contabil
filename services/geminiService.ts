@@ -157,7 +157,10 @@ export const generateNotaTecnica = async (finalData: ComparisonResult): Promise<
   `;
 
   try {
-    const response = await ai.models.generateContent({ model, contents: prompt });
+    const response = await ai.models.generateContent({
+      model,
+      contents: { parts: [{ text: prompt }] }
+    });
     let text = response.text;
     if (!text) throw new Error("A API não retornou o parecer técnico.");
 
