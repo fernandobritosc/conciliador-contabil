@@ -25,7 +25,7 @@ const readFileAsDataURL = (file: File): Promise<string> => {
     });
 };
 
-export const generatePdf = async (notaTecnicaHtml: string, files: (File | null)[], finalData?: ComparisonResult) => {
+export const generatePdf = async (notaTecnicaHtml: string, files: (File | string | null)[], finalData?: ComparisonResult) => {
     const doc = new jsPDF({
         orientation: 'p',
         unit: 'mm',
@@ -107,12 +107,16 @@ export const generatePdf = async (notaTecnicaHtml: string, files: (File | null)[
     const dateStr = today.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 
     // Repositioning Attachments List to the end of note
-    const validFiles = files.filter((file): file is File => file !== null);
+    const validFiles = files.filter((file): file is File | string => file !== null);
     const attachmentsHtml = validFiles.length > 0
         ? `<div style="margin-top: 15mm; border-top: 1pt solid #eee; padding-top: 5mm; page-break-inside: avoid;">
             <p style="font-weight: bold; font-size: 11pt; margin-bottom: 3mm;">DOCUMENTAÇÃO ANEXA:</p>
             <ul style="font-size: 10pt; color: #555; padding-left: 5mm; list-style-type: none;">
-                ${validFiles.map(f => `<li>• ${f.name}</li>`).join('')}
+                ${validFiles.map(f => {
+            const name = typeof f === 'string' ? decodeURIComponent(f.split('/').pop()?.split('?')[0] || 'Documento') : f.name;
+            const suffix = typeof f === 'string' ? ' (Online)' : '';
+            return `<li>• ${name}${suffix}</li>`;
+        }).join('')}
             </ul>
            </div>`
         : '';
@@ -149,6 +153,8 @@ export const generatePdf = async (notaTecnicaHtml: string, files: (File | null)[
 
     // --- 4. Add Attachments ---
     for (const file of validFiles) {
+        if (typeof file === 'string') continue; // Skip online files for now
+
         try {
             if (file.type === 'application/pdf') {
                 const pdfData = await readFileAsArrayBuffer(file);

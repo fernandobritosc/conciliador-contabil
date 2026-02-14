@@ -39,3 +39,30 @@ if (supabaseUrl && supabaseAnonKey) {
 }
 
 export const supabase = supabaseInstance;
+
+export async function uploadFile(file: File, path: string): Promise<string | null> {
+  if (!supabaseInstance) return null;
+
+  try {
+    const { data, error } = await supabaseInstance.storage
+      .from('audit-files')
+      .upload(path, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (error) {
+      console.error('Error uploading file:', error);
+      return null;
+    }
+
+    const { data: publicUrlData } = supabaseInstance.storage
+      .from('audit-files')
+      .getPublicUrl(path);
+
+    return publicUrlData.publicUrl;
+  } catch (error) {
+    console.error('Unexpected error uploading file:', error);
+    return null;
+  }
+}

@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { RhRelatorioData, RhGuiaData, RetentionReportData, ComparisonResult, EmpenhoData, LiquidacaoData } from '../types';
 
 const cleanJsonString = (text: string): string => {
@@ -48,9 +48,8 @@ const getExtractionPrompt = (type: 'Relatorio' | 'Guia' | 'Retention' | 'Empenho
       return `
         Analise a imagem do relatório de retenção contábil.
         OBJETIVO: Extrair o valor total retido de INSS.
-        CAMPOS: "Valor Retido" (Total de INSS retido), "Competência" (opcional, MM/YYYY), "Empresa" (opcional).
-        FORMATO JSON: {"valorRetido": 0.00, "competencia": "MM/YYYY", "empresa": "Nome da Empresa"}.
-        REGRAS: Retorne APENAS o JSON. Use ponto (.) para decimais. Omitir campos opcionais se não encontrados.
+        FORMATO JSON: {"valorRetido": 0.00}.
+        REGRAS: Retorne APENAS o JSON. Use ponto (.) como separador decimal.
       `;
   }
 };
@@ -68,19 +67,16 @@ export async function extractData(
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   if (!apiKey) throw new Error("API Key is required. Please check your environment configuration.");
 
-  const ai = new GoogleGenAI({ apiKey });
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
   const prompt = getExtractionPrompt(type);
 
   const imagePart = { inlineData: { mimeType, data: base64Data } };
-  const textPart = { text: prompt };
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: [textPart, imagePart],
-    });
-
-    const textContent = response.text;
+    const result = await model.generateContent([prompt, imagePart]);
+    const response = await result.response;
+    const textContent = response.text();
     if (!textContent) throw new Error("A API não retornou conteúdo válido.");
 
     const cleanedJson = cleanJsonString(textContent);
@@ -115,8 +111,8 @@ export async function extractData(
 export const generateNotaTecnica = async (finalData: ComparisonResult): Promise<string> => {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   if (!apiKey) throw new Error("API Key is required. Please check your environment configuration.");
-  const ai = new GoogleGenAI({ apiKey });
-  const model = 'gemini-1.5-pro';
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
   const format = (value: number) => value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -158,11 +154,9 @@ export const generateNotaTecnica = async (finalData: ComparisonResult): Promise<
   `;
 
   try {
-    const response = await ai.models.generateContent({
-      model,
-      contents: prompt
-    });
-    let text = response.text;
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    let text = response.text();
     if (!text) throw new Error("A API não retornou o parecer técnico.");
 
     // Cleanup any lingering markdown characters and horizontal rules

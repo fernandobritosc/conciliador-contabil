@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { RhRelatorioData, RhGuiaData, RetentionReportData, ComparisonResult, Step, EmpenhoData, LiquidacaoData, ReconciliationRecord } from './types';
 import { generateNotaTecnica, extractData } from './services/geminiService';
-import { supabase } from './services/supabaseClient';
+import { supabase, uploadFile } from './services/supabaseClient';
 import StepUpload from './components/StepUpload';
 import ComparisonTable from './components/ComparisonTable';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import Settings from './components/Settings';
-import { ArrowLeft, PlusCircle, History, Eye, CheckCircle, XCircle, Loader2, AlertTriangle, FileSpreadsheet, Trash2 } from 'lucide-react';
+import { ArrowLeft, PlusCircle, History, Eye, CheckCircle, XCircle, Loader2, AlertTriangle, Trash2 } from 'lucide-react';
 
 const ORGAOS = [
   "PREFEITURA MUNICIPAL DE SENADOR CANEDO",
@@ -45,6 +45,7 @@ const createBlankData = (type: 'Relatorio' | 'Guia' | 'Retention' | 'Empenho' | 
 
 type View = 'new' | 'history' | 'process';
 
+
 const App: React.FC = () => {
   if (!supabase) {
     return <Settings />;
@@ -78,6 +79,8 @@ const App: React.FC = () => {
   const [isLoadingNotaTecnica, setIsLoadingNotaTecnica] = useState(false);
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
+  const [uploadedFileUrls, setUploadedFileUrls] = useState<Record<string, string>>({});
+
 
 
   useEffect(() => {
@@ -112,13 +115,12 @@ const App: React.FC = () => {
       comparison_result: partialData.comparison_result || comparisonResult || null,
       nota_tecnica: partialData.nota_tecnica || viewingRecord?.nota_tecnica || notaTecnicaText || null,
       created_at: viewingRecord?.created_at || new Date().toISOString(),
-      updated_at: new Date().toISOString(),
       files: partialData.files || viewingRecord?.files || [
-        ...rhFiles.map(f => f.name),
-        ...retentionFiles.map(f => f.name),
-        ...empenhoFiles.map(f => f.name),
-        ...liquidacaoFiles.map(f => f.name),
-        ...guiaFiles.map(f => f.name)
+        ...rhFiles.map(f => uploadedFileUrls[f.name] || f.name),
+        ...retentionFiles.map(f => uploadedFileUrls[f.name] || f.name),
+        ...empenhoFiles.map(f => uploadedFileUrls[f.name] || f.name),
+        ...liquidacaoFiles.map(f => uploadedFileUrls[f.name] || f.name),
+        ...guiaFiles.map(f => uploadedFileUrls[f.name] || f.name)
       ]
     };
 
@@ -142,7 +144,7 @@ const App: React.FC = () => {
         return [savedRecord, ...prev];
       });
 
-      if (!viewingRecord || viewingRecord.id !== savedRecord.id) {
+      if (!viewingRecord || viewingRecord.id === savedRecord.id) {
         setViewingRecord(savedRecord);
       }
       return savedRecord;
@@ -222,28 +224,55 @@ const App: React.FC = () => {
     docType: 'Relatorio' | 'Retention' | 'Empenho' | 'Liquidacao' | 'Guia',
     docName: string
   ) => async (files: FileList) => {
+    console.log(`[UPLOAD] Iniciando upload para ${docName}`, { fileCount: files.length, docType });
     setIsLoading(true);
     setError(null);
     try {
       const actualFiles = Array.from(files);
+      console.log(`[UPLOAD] Arquivos recebidos:`, actualFiles.map(f => ({ name: f.name, type: f.type, size: f.size })));
       setFiles(actualFiles);
 
+      // Upload files to Supabase Storage first
+      if (orgao && competencia) {
+        for (const file of actualFiles) {
+          const sanitize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9.]/gi, '_').toLowerCase();
+          const safeFileName = sanitize(file.name);
+          const path = `${sanitize(orgao)}/${sanitize(competencia)}/${sanitize(docType)}_${Date.now()}_${safeFileName}`;
+          console.log(`[UPLOAD] Enviando arquivo para Storage: ${path}`);
+          const publicUrl = await uploadFile(file, path);
+          if (publicUrl) {
+            console.log(`[UPLOAD] Arquivo salvo: ${publicUrl}`);
+            setUploadedFileUrls(prev => ({ ...prev, [file.name]: publicUrl }));
+          }
+        }
+      }
+
       const extractedResults = await Promise.all(actualFiles.map(async (file) => {
+        console.log(`[UPLOAD] Convertendo arquivo para base64: ${file.name}`);
         const base64Data = await fileToBase64(file);
-        return await extractData(base64Data, file.type, docType as any);
+        console.log(`[UPLOAD] Base64 gerado, tamanho: ${base64Data.length} caracteres`);
+        console.log(`[UPLOAD] Chamando extractData com tipo: ${docType}, mimeType: ${file.type}`);
+        const result = await extractData(base64Data, file.type, docType as any);
+        console.log(`[UPLOAD] Dados extraídos com sucesso:`, result);
+        return result;
       }));
 
       // Pass the list if multiple, or single if one
-      setData(extractedResults.length > 1 ? extractedResults : extractedResults[0]);
+      const finalData = extractedResults.length > 1 ? extractedResults : extractedResults[0];
+      console.log(`[UPLOAD] Definindo dados finais:`, finalData);
+      setData(finalData);
     } catch (err: any) {
-      console.error("Erro detalhado:", err);
+      console.error("[UPLOAD] Erro detalhado:", err);
+      console.error("[UPLOAD] Stack trace:", err?.stack);
       const isQuotaError = err?.message?.includes('Sua cota de uso da API foi excedida');
-      setError(isQuotaError
+      const errorMessage = isQuotaError
         ? err.message + '\n\nPor favor, preencha os valores manualmente para continuar.'
-        : `Falha ao ler o ${docName}: ${err?.message || "Erro desconhecido"}`
-      );
-      setData(createBlankData(docType));
+        : `Falha ao ler o ${docName}: ${err?.message || "Erro desconhecido"}`;
+      console.error("[UPLOAD] Mensagem de erro para o usuário:", errorMessage);
+      setError(errorMessage);
+      // Removed: setData(createBlankData(docType)); - This was causing silent failures
     } finally {
+      console.log(`[UPLOAD] Finalizando upload, setIsLoading(false)`);
       setIsLoading(false);
     }
   };
@@ -258,25 +287,25 @@ const App: React.FC = () => {
     setRelatorioData(data);
     setRhFiles(files);
     setCurrentStep('UPLOAD_RETENTION');
-    savePartialReconciliation({ files: files.map(f => f.name) });
+    savePartialReconciliation({ files: files.map(f => uploadedFileUrls[f.name] || f.name) });
   };
   const confirmRetentionData = (data: RetentionReportData, files: File[]) => {
     setRetentionData(data);
     setRetentionFiles(files);
     setCurrentStep('UPLOAD_EMPENHO');
-    savePartialReconciliation({ files: [...rhFiles, ...files].map(f => f.name) });
+    savePartialReconciliation({ files: [...rhFiles, ...files].map(f => uploadedFileUrls[f.name] || f.name) });
   };
   const confirmEmpenhoData = (data: EmpenhoData, files: File[]) => {
     setEmpenhoData(data);
     setEmpenhoFiles(files);
     setCurrentStep('UPLOAD_LIQUIDACAO');
-    savePartialReconciliation({ files: [...rhFiles, ...retentionFiles, ...files].map(f => f.name) });
+    savePartialReconciliation({ files: [...rhFiles, ...retentionFiles, ...files].map(f => uploadedFileUrls[f.name] || f.name) });
   };
   const confirmLiquidacaoData = (data: LiquidacaoData, files: File[]) => {
     setLiquidacaoData(data);
     setLiquidacaoFiles(files);
     setCurrentStep('UPLOAD_GUIA');
-    savePartialReconciliation({ files: [...rhFiles, ...retentionFiles, ...empenhoFiles, ...files].map(f => f.name) });
+    savePartialReconciliation({ files: [...rhFiles, ...retentionFiles, ...empenhoFiles, ...files].map(f => uploadedFileUrls[f.name] || f.name) });
   };
 
   const confirmGuiaData = async (data: RhGuiaData, files: File[]) => {
@@ -707,7 +736,7 @@ const App: React.FC = () => {
             onRectify={() => handleRectify(viewingRecord!)}
             isHistoryView={!!viewingRecord}
             onSaveNotaTecnica={handleSaveNotaTecnica}
-            files={[...rhFiles, ...retentionFiles, ...empenhoFiles, ...liquidacaoFiles, ...guiaFiles]}
+            files={viewingRecord ? viewingRecord.files : [...rhFiles, ...retentionFiles, ...empenhoFiles, ...liquidacaoFiles, ...guiaFiles]}
           />
         </div>
       );

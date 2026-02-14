@@ -12,7 +12,7 @@ interface ComparisonTableProps {
     onReset: () => void;
     onRectify: () => void;
     isHistoryView: boolean;
-    files: (File | null)[];
+    files: (File | string | null)[];
     onSaveNotaTecnica: (nota: string) => Promise<void>;
 }
 
@@ -68,6 +68,15 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
         }
     };
 
+    if (!finalData) {
+        return (
+            <div className="w-full flex justify-center items-center py-20">
+                <Loader2 className="h-10 w-10 text-emerald-500 animate-spin mb-4" />
+                <p className="text-slate-400">Processando dados da conciliação...</p>
+            </div>
+        );
+    }
+
     return (
         <div className="w-full max-w-6xl mx-auto animate-scale-in">
             <div className="flex items-center justify-between mb-10">
@@ -75,15 +84,15 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
                     <h2 className="text-3xl font-extrabold text-white tracking-tighter">Resumo Executivo</h2>
                     <p className="text-slate-400 font-medium mt-1">Checklist de conformidade da auditoria previdenciária.</p>
                 </div>
-                <div className={`px-6 py-2 rounded-2xl border font-bold text-sm tracking-widest uppercase ${finalData.finalStatus === 'DIVERGENTE' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
-                    {finalData.finalStatus}
+                <div className={`px-6 py-2 rounded-2xl border font-bold text-sm tracking-widest uppercase ${finalData?.finalStatus === 'DIVERGENTE' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'}`}>
+                    {finalData?.finalStatus || 'PROCESSANDO'}
                 </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
                 {[
                     { label: 'Segurados vs Retenção', valA: finalData.segurados.rh, valB: finalData.retentionData?.valorRetido || 0, match: finalData.retentionMatch, linkA: finalData.triangulation?.rh_vs_contab.segurados, linkB: finalData.triangulation?.contab_vs_darf.segurados, desc: 'RH vs Retenção Contábil' },
-                    { label: 'Retenção vs Empenho', valA: finalData.retentionData?.valorRetido || 0, valB: finalData.empenhoData?.valor || 0, match: finalData.empenhoMatch, linkA: true, linkB: true, desc: 'Retenção vs Empenho' }, // Etapas internas contábeis
+                    { label: 'Retenção vs Empenho', valA: finalData.retentionData?.valorRetido || 0, valB: finalData.empenhoData?.valor || 0, match: finalData.empenhoMatch, linkA: true, linkB: true, desc: 'Retenção vs Empenho' },
                     { label: 'Patronal (RH vs Liquidação)', valA: (finalData.empresa.rh + finalData.acidente.rh), valB: finalData.liquidacaoData?.valorBruto || 0, match: finalData.liquidacaoBrutoMatch, linkA: finalData.triangulation?.rh_vs_contab.empresa, linkB: true, desc: 'RH vs Liquidação Bruta' },
                     { label: 'RH vs Guia (Segurados)', valA: finalData.segurados.rh, valB: finalData.segurados.guia, match: finalData.segurados.status === 'MATCH', linkA: finalData.triangulation?.rh_vs_contab.segurados, linkB: finalData.triangulation?.contab_vs_darf.segurados, desc: 'RH vs DARF 1082' },
                     { label: 'RH vs Guia (Patronal)', valA: finalData.empresa.rh, valB: finalData.empresa.guia, match: finalData.empresa.status === 'MATCH', linkA: finalData.triangulation?.rh_vs_contab.empresa, linkB: finalData.triangulation?.contab_vs_darf.empresa, desc: 'RH vs DARF 1138' },
@@ -195,6 +204,54 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
                     >
                         Nova Auditoria
                     </button>
+                )}
+            </div>
+
+            <div className="mb-10 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+                <div className="flex items-center space-x-3 mb-6">
+                    <div className="bg-slate-800 p-2.5 rounded-xl border border-white/5 text-indigo-400">
+                        <FileText className="h-5 w-5" />
+                    </div>
+                    <h3 className="text-xl font-bold text-white tracking-tight">Anexos do Processo</h3>
+                </div>
+
+                {files && files.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                        {files.filter((f): f is File | string => !!f).map((file, idx) => {
+                            const isUrl = typeof file === 'string';
+                            const name = isUrl ? decodeURIComponent(file.split('/').pop()?.split('?')[0] || 'Anexo') : (file as File).name;
+                            const type = isUrl ? 'Documento Salvo' : (file as File).type;
+
+                            return (
+                                <div key={idx} className="glass-card p-4 rounded-xl flex items-center justify-between group hover:border-indigo-500/30 transition-all">
+                                    <div className="flex items-center overflow-hidden mr-3">
+                                        <div className="bg-slate-800 p-2 rounded-lg mr-3 text-indigo-400 shrink-0">
+                                            <FileText className="h-5 w-5" />
+                                        </div>
+                                        <div className="flex flex-col overflow-hidden">
+                                            <span className="text-sm font-medium text-slate-300 truncate" title={name}>{name}</span>
+                                            <span className="text-[10px] text-slate-500 uppercase tracking-wider">{type}</span>
+                                        </div>
+                                    </div>
+                                    {isUrl && (
+                                        <a
+                                            href={file as string}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="p-2 text-slate-500 hover:text-indigo-400 hover:bg-white/5 rounded-lg transition-colors shrink-0"
+                                            title="Baixar Anexo"
+                                        >
+                                            <Download className="h-4 w-4" />
+                                        </a>
+                                    )}
+                                </div>
+                            )
+                        })}
+                    </div>
+                ) : (
+                    <div className="glass-card p-8 rounded-2xl border-dashed border-white/5 text-center">
+                        <p className="text-slate-500 font-medium text-sm">Nenhum anexo disponível neste processo.</p>
+                    </div>
                 )}
             </div>
 

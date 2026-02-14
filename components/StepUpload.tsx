@@ -279,14 +279,42 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
     if (isLoading) return <div className="flex flex-col items-center justify-center p-12"><div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-600 mb-4"></div><p className="text-lg font-medium text-zinc-700 animate-pulse">Analisando documento...</p><p className="text-sm text-zinc-500 mt-2">Isso pode levar alguns segundos...</p></div>;
 
     if (error && mode === 'ia' && !data) return (
-        <div className="w-full max-w-2xl mx-auto">
-            <div className="mt-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
-                <div className="flex items-start">
-                    <AlertCircle className="h-5 w-5 mr-3 mt-0.5 flex-shrink-0" />
-                    <div className="flex-1"><p className="font-semibold">Ocorreu um erro</p><div className="text-sm mt-2 space-y-1">{error.split('\n').map((line, i) => (<p key={i}>{line}</p>))}</div></div>
+        <div className="w-full max-w-3xl mx-auto flex flex-col items-center">
+            <div className="text-center mb-8">
+                <h2 className="text-3xl font-black text-white tracking-tighter uppercase mb-2">{title}</h2>
+                <p className="text-slate-400 font-medium">{description}</p>
+            </div>
+
+            <div className="w-full glass-card rounded-3xl p-8 border-red-500/30 bg-red-500/10">
+                <div className="flex items-start gap-4 mb-6">
+                    <div className="bg-red-500/20 p-3 rounded-xl border border-red-500/30">
+                        <AlertCircle className="h-6 w-6 text-red-400" />
+                    </div>
+                    <div className="flex-1">
+                        <h3 className="font-black text-xl text-red-400 mb-2">Erro na Extração Automática</h3>
+                        <div className="text-sm text-slate-300 space-y-2 leading-relaxed">
+                            {error.split('\n').map((line, i) => (
+                                <p key={i} className="font-medium">{line}</p>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex gap-4 pt-6 border-t border-white/10">
+                    <button
+                        onClick={onClear}
+                        className="flex-1 px-6 py-3 bg-indigo-600 text-white font-black rounded-xl shadow-xl hover:bg-indigo-700 transition-all uppercase tracking-wider text-sm"
+                    >
+                        Tentar Novamente
+                    </button>
+                    <button
+                        onClick={handleManualMode}
+                        className="flex-1 px-6 py-3 bg-emerald-600 text-white font-black rounded-xl shadow-xl hover:bg-emerald-700 transition-all uppercase tracking-wider text-sm"
+                    >
+                        Lançamento Manual
+                    </button>
                 </div>
             </div>
-            <div className="mt-4 flex justify-center"><button onClick={onClear} className="px-6 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition">Tentar Novamente</button></div>
         </div>
     );
 

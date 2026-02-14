@@ -86,6 +86,5 @@ export interface ReconciliationRecord {
   comparison_result: ComparisonResult | null;
   nota_tecnica: string | null;
   created_at: string;
-  updated_at: string;
   files: string[];
 }
