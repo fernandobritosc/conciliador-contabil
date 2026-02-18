@@ -83,9 +83,10 @@ export const generatePdf = async (notaTecnicaHtml: string, files: (File | string
         const tableRows = [
             { label: 'Segurados (Cód. 1082)', rh: finalData.segurados.rh, contab: finalData.retentionData?.valorRetido || 0, darf: finalData.segurados.guia },
             { label: 'Empresa (Cód. 1138)', rh: finalData.empresa.rh, contab: finalData.liquidacaoData ? (finalData.liquidacaoData.valorBruto - finalData.liquidacaoData.salarioFamilia - finalData.liquidacaoData.salarioMaternidade) : 0, darf: finalData.empresa.guia },
-            { label: 'GILRAT / Acidente (Cód. 1646)', rh: finalData.acidente.rh, contab: finalData.acidente.rh, darf: finalData.acidente.guia }, // RH used as proxy for Embedded Contab
+            { label: 'GILRAT / Acidente (Cód. 1646)', rh: finalData.acidente.rh, contab: finalData.acidente.rh, darf: finalData.acidente.guia },
+            { label: 'Contrib. Individual (Cód. 1099)', rh: 0, contab: 0, darf: finalData.guiaData?.valorContribIndividual || 0 },
             { label: 'Deduções (FPAS / Sal. Família)', rh: finalData.relatorioData?.deducaoFpas || 0, contab: finalData.liquidacaoData ? (finalData.liquidacaoData.salarioFamilia + finalData.liquidacaoData.salarioMaternidade) : 0, darf: 0 },
-            { label: 'TOTAL GERAL A RECOLHER', rh: finalData.total.rh, contab: finalData.totalContab, darf: finalData.total.guia, isBold: true }
+            { label: 'TOTAL GERAL A RECOLHER', rh: finalData.total.rh, contab: finalData.totalContab + (finalData.guiaData?.valorContribIndividual || 0), darf: finalData.total.guia, isBold: true }
         ];
 
         tableRows.forEach(row => {

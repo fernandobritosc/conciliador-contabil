@@ -45,6 +45,7 @@ const getFieldsForType = (type: 'Relatorio' | 'Guia' | 'Retention' | 'Empenho' |
             { key: 'valorSegurados', label: 'Cód 1082 (Segurados)', type: 'number' },
             { key: 'valorEmpresa', label: 'Cód 1138 (Empresa)', type: 'number' },
             { key: 'valorRiscoAmbiental', label: 'Cód 1646 (RAT)', type: 'number' },
+            { key: 'valorContribIndividual', label: 'Cód 1099 (Contr. Ind.)', type: 'number' },
             { key: 'totalGuia', label: 'Total da Guia', type: 'number', isCalculated: true },
         ];
         case 'Retention': return [{ key: 'valorRetido', label: 'Valor Retido (INSS)', type: 'number', isTotal: true }, { key: 'competencia', label: 'Competência', type: 'text' }, { key: 'empresa', label: 'Empresa', type: 'text' },];
@@ -110,7 +111,7 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
         const updated = { ...currentFormValues };
         const format = (num: number) => num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         if (type === 'Relatorio') updated.totalARecolher = format(parse(updated.valorSegurados) + parse(updated.valorEmpresa) + parse(updated.valorAcidente) - parse(updated.deducaoFpas));
-        if (type === 'Guia') updated.totalGuia = format(parse(updated.valorSegurados) + parse(updated.valorEmpresa) + parse(updated.valorRiscoAmbiental));
+        if (type === 'Guia') updated.totalGuia = format(parse(updated.valorSegurados) + parse(updated.valorEmpresa) + parse(updated.valorRiscoAmbiental) + parse(updated.valorContribIndividual));
         return updated;
     };
 

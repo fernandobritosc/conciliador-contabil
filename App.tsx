@@ -35,7 +35,7 @@ const fileToBase64 = (file: File): Promise<string> => {
 const createBlankData = (type: 'Relatorio' | 'Guia' | 'Retention' | 'Empenho' | 'Liquidacao') => {
   switch (type) {
     case 'Relatorio': return { valorSegurados: 0, valorEmpresa: 0, valorAcidente: 0, deducaoFpas: 0, totalARecolher: 0 };
-    case 'Guia': return { valorSegurados: 0, valorEmpresa: 0, valorRiscoAmbiental: 0, totalGuia: 0 };
+    case 'Guia': return { valorSegurados: 0, valorEmpresa: 0, valorRiscoAmbiental: 0, valorContribIndividual: 0, totalGuia: 0 };
     case 'Retention': return { valorRetido: 0, competencia: '', empresa: '' };
     case 'Empenho': return { numeroEmpenho: '', valor: 0 };
     case 'Liquidacao': return { numeroEmpenho: '', valorBruto: 0, salarioFamilia: 0, salarioMaternidade: 0 };
@@ -321,7 +321,7 @@ const App: React.FC = () => {
         seguradosMatch: Math.abs(data.valorSegurados - retentionData.valorRetido) < tolerance,
         empresaMatch: Math.abs(data.valorEmpresa - (liquidacaoData.valorBruto - liquidacaoData.salarioFamilia - liquidacaoData.salarioMaternidade)) < tolerance, // Ajuste para bater com patronal líquida
         acidenteMatch: Math.abs(data.valorRiscoAmbiental - (relatorioData.valorAcidente)) < tolerance, // RAT geralmente é direto do RH ou Contabilidade
-        totalMatch: Math.abs(data.totalGuia - (retentionData.valorRetido + (liquidacaoData.valorBruto - liquidacaoData.salarioFamilia - liquidacaoData.salarioMaternidade) + relatorioData.valorAcidente)) < tolerance
+        totalMatch: Math.abs(data.totalGuia - (retentionData.valorRetido + (liquidacaoData.valorBruto - liquidacaoData.salarioFamilia - liquidacaoData.salarioMaternidade) + relatorioData.valorAcidente + (data.valorContribIndividual || 0))) < tolerance
       };
 
       const result: ComparisonResult = {
@@ -349,6 +349,7 @@ const App: React.FC = () => {
           }
         },
         totalContab: (retentionData.valorRetido + (liquidacaoData.valorBruto - liquidacaoData.salarioFamilia - liquidacaoData.salarioMaternidade)),
+        guiaData: data,
         finalStatus: 'DIVERGENTE' // Default
       };
 
@@ -457,6 +458,7 @@ const App: React.FC = () => {
       valorSegurados: res.segurados.guia,
       valorEmpresa: res.empresa.guia,
       valorRiscoAmbiental: res.acidente.guia,
+      valorContribIndividual: res.guiaData?.valorContribIndividual || 0,
       totalGuia: res.total.guia,
     });
 

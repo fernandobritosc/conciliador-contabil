@@ -32,6 +32,7 @@ export interface RhGuiaData {
   valorSegurados: number; // Cód 1082
   valorEmpresa: number;   // Cód 1138
   valorRiscoAmbiental: number; // Cód 1646
+  valorContribIndividual: number; // Cód 1099
   totalGuia: number;
 }
 
@@ -73,6 +74,7 @@ export interface ComparisonResult {
     };
   };
   totalContab: number;
+  guiaData?: RhGuiaData;
   finalStatus: ComparisonStatus;
 }
 
