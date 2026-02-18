@@ -88,13 +88,13 @@ const App: React.FC = () => {
       setIsHistoryLoading(true);
       setDbError(null);
       try {
-        const { data, error } = await (supabase as any)
+        const { data, error } = await supabase
           .from('reconciliacoes')
           .select('*')
           .order('created_at', { ascending: false });
 
         if (error) throw error;
-        setHistory(data as ReconciliationRecord[]);
+        setHistory(data as unknown as ReconciliationRecord[]);
       } catch (err: any) {
         console.error("Failed to load history from Supabase", err);
         setDbError("Falha ao carregar histórico do banco de dados. Verifique sua conexão e as configurações do Supabase.");
@@ -125,14 +125,15 @@ const App: React.FC = () => {
     };
 
     try {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('reconciliacoes')
-        .upsert(newRecordData)
+        .upsert(newRecordData as any)
         .select()
         .single();
 
       if (error) throw error;
-      const savedRecord = data as ReconciliationRecord;
+      const savedRecord = data as unknown as ReconciliationRecord;
+      setViewingRecord(savedRecord);
 
       setHistory(prev => {
         const index = prev.findIndex(h => h.id === savedRecord.id);
@@ -168,7 +169,7 @@ const App: React.FC = () => {
     }
 
     try {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('reconciliacoes')
         .update({ nota_tecnica: nota })
         .eq('id', recordId);
@@ -192,7 +193,7 @@ const App: React.FC = () => {
     if (!window.confirm("Tem certeza que deseja excluir permanentemente esta conciliação?")) return;
 
     try {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('reconciliacoes')
         .delete()
         .eq('id', id);

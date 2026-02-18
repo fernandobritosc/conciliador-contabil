@@ -7,29 +7,64 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || localStorage.g
 
 // O tipo Database pode ser gerado automaticamente pelo Supabase CLI para uma tipagem forte
 // Por enquanto, usaremos uma definição manual básica.
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
 export interface Database {
   public: {
     Tables: {
       reconciliacoes: {
-        Row: ReconciliationRecord;
-        Insert: ReconciliationRecord; // Facilitares upsert with ID
-        Update: Partial<ReconciliationRecord>;
-        Relationships: [];
-      };
-    };
+        Row: {
+          id: string
+          orgao: string
+          competencia: string
+          status: string
+          comparison_result: Json | null
+          nota_tecnica: string | null
+          created_at: string
+          files: string[]
+        }
+        Insert: {
+          id?: string
+          orgao: string
+          competencia: string
+          status: string
+          comparison_result?: Json | null
+          nota_tecnica?: string | null
+          created_at?: string
+          files: string[]
+        }
+        Update: {
+          id?: string
+          orgao?: string
+          competencia?: string
+          status?: string
+          comparison_result?: Json | null
+          nota_tecnica?: string | null
+          created_at?: string
+          files?: string[]
+        }
+        Relationships: []
+      }
+    }
     Views: {
-      [_ in never]: never;
-    };
+      [_ in never]: never
+    }
     Functions: {
-      [_ in never]: never;
-    };
+      [_ in never]: never
+    }
     Enums: {
-      [_ in never]: never;
-    };
+      [_ in never]: never
+    }
     CompositeTypes: {
-      [_ in never]: never;
-    };
-  };
+      [_ in never]: never
+    }
+  }
 }
 
 
