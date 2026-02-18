@@ -59,11 +59,11 @@ const App: React.FC = () => {
   const [history, setHistory] = useState<ReconciliationRecord[]>([]);
   const [viewingRecord, setViewingRecord] = useState<ReconciliationRecord | null>(null);
 
-  const [relatorioData, setRelatorioData] = useState<RhRelatorioData | null>(null);
-  const [retentionData, setRetentionData] = useState<RetentionReportData | null>(null);
-  const [empenhoData, setEmpenhoData] = useState<EmpenhoData | null>(null);
-  const [liquidacaoData, setLiquidacaoData] = useState<LiquidacaoData | null>(null);
-  const [guiaData, setGuiaData] = useState<RhGuiaData | null>(null);
+  const [relatorioData, setRelatorioData] = useState<RhRelatorioData | RhRelatorioData[] | null>(null);
+  const [retentionData, setRetentionData] = useState<RetentionReportData | RetentionReportData[] | null>(null);
+  const [empenhoData, setEmpenhoData] = useState<EmpenhoData | EmpenhoData[] | null>(null);
+  const [liquidacaoData, setLiquidacaoData] = useState<LiquidacaoData | LiquidacaoData[] | null>(null);
+  const [guiaData, setGuiaData] = useState<RhGuiaData | RhGuiaData[] | null>(null);
 
   const [rhFiles, setRhFiles] = useState<File[]>([]);
   const [retentionFiles, setRetentionFiles] = useState<File[]>([]);
@@ -88,7 +88,7 @@ const App: React.FC = () => {
       setIsHistoryLoading(true);
       setDbError(null);
       try {
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from('reconciliacoes')
           .select('*')
           .order('created_at', { ascending: false });
@@ -107,7 +107,7 @@ const App: React.FC = () => {
 
   const savePartialReconciliation = async (partialData: Partial<ReconciliationRecord>) => {
     const id = viewingRecord?.id || partialData.id || crypto.randomUUID();
-    const newRecordData = {
+    const newRecordData: ReconciliationRecord = {
       id,
       orgao: partialData.orgao || orgao,
       competencia: partialData.competencia || competencia,
@@ -125,7 +125,7 @@ const App: React.FC = () => {
     };
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('reconciliacoes')
         .upsert(newRecordData)
         .select()
@@ -168,7 +168,7 @@ const App: React.FC = () => {
     }
 
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('reconciliacoes')
         .update({ nota_tecnica: nota })
         .eq('id', recordId);
@@ -192,7 +192,7 @@ const App: React.FC = () => {
     if (!window.confirm("Tem certeza que deseja excluir permanentemente esta conciliação?")) return;
 
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('reconciliacoes')
         .delete()
         .eq('id', id);
@@ -311,7 +311,10 @@ const App: React.FC = () => {
   const confirmGuiaData = async (data: RhGuiaData, files: File[]) => {
     setGuiaData(data);
     setGuiaFiles(files);
-    if (relatorioData && retentionData && empenhoData && liquidacaoData) {
+    if (relatorioData && !Array.isArray(relatorioData) &&
+      retentionData && !Array.isArray(retentionData) &&
+      empenhoData && !Array.isArray(empenhoData) &&
+      liquidacaoData && !Array.isArray(liquidacaoData)) {
       const tolerance = 0.05;
 
       const internalMatches = {
@@ -598,7 +601,7 @@ const App: React.FC = () => {
         description: "Envie a 'Relação da Contribuição Previdenciária'.",
         manualTitle: "Relação da Contribuição Previdenciária",
         type: 'Relatorio',
-        allowMultiple: false,
+        allowMultiple: true,
         data: relatorioData,
         files: rhFiles,
         onFileUpload: handleRhUpload,
@@ -624,7 +627,7 @@ const App: React.FC = () => {
         back: 'UPLOAD_RH',
         stepLabel: "2 de 5",
         section: "Contabilidade",
-        expectedValue: relatorioData ? { label: "Segurados (RH)", value: relatorioData.valorSegurados, keyToMatch: 'valorRetido' } : undefined,
+        expectedValue: (relatorioData && !Array.isArray(relatorioData)) ? { label: "Segurados (RH)", value: relatorioData.valorSegurados, keyToMatch: 'valorRetido' } : undefined,
         availableReportTypes: [{ key: 'Retention', label: 'Relatório de Retenção' }]
       },
       {
@@ -642,7 +645,7 @@ const App: React.FC = () => {
         back: 'UPLOAD_RETENTION',
         stepLabel: "3 de 5",
         section: "Contabilidade",
-        expectedValue: relatorioData ? { label: "Alvo Segurados (RH)", value: relatorioData.valorSegurados, keyToMatch: 'valor' } : undefined,
+        expectedValue: (relatorioData && !Array.isArray(relatorioData)) ? { label: "Alvo Segurados (RH)", value: relatorioData.valorSegurados, keyToMatch: 'valor' } : undefined,
         availableReportTypes: [{ key: 'Empenho', label: 'Nota de Empenho' }]
       },
       {
@@ -660,7 +663,7 @@ const App: React.FC = () => {
         back: 'UPLOAD_EMPENHO',
         stepLabel: "4 de 5",
         section: "Contabilidade",
-        expectedValue: relatorioData ? { label: "Patronal (RH)", value: relatorioData.valorEmpresa + relatorioData.valorAcidente, keyToMatch: 'valorBruto' } : undefined,
+        expectedValue: (relatorioData && !Array.isArray(relatorioData)) ? { label: "Patronal (RH)", value: relatorioData.valorEmpresa + relatorioData.valorAcidente, keyToMatch: 'valorBruto' } : undefined,
         availableReportTypes: [{ key: 'Liquidacao', label: 'Nota de Liquidação' }]
       },
       {
@@ -678,7 +681,7 @@ const App: React.FC = () => {
         back: 'UPLOAD_LIQUIDACAO',
         stepLabel: "5 de 5",
         section: "Contabilidade",
-        expectedValue: relatorioData ? { label: "Total a Recolher (RH)", value: relatorioData.totalARecolher, keyToMatch: 'totalGuia' } : undefined,
+        expectedValue: (relatorioData && !Array.isArray(relatorioData)) ? { label: "Total a Recolher (RH)", value: relatorioData.totalARecolher, keyToMatch: 'totalGuia' } : undefined,
         availableReportTypes: [
           { key: 'Guia', label: 'DARF Previdenciário' },
           { key: 'GuiaOutros', label: 'Outras Guias' }

@@ -269,7 +269,7 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
                         <span className="relative z-10 flex items-center tracking-tighter text-lg uppercase">
                             Procurar Arquivo <Paperclip className="h-5 w-5 ml-2" />
                         </span>
-                        <input type="file" className="hidden" accept=".pdf,image/*" multiple={false} onChange={(e) => e.target.files && onFileUpload(e.target.files)} />
+                        <input type="file" className="hidden" accept=".pdf,image/*" multiple={allowMultiple} onChange={(e) => e.target.files && onFileUpload(e.target.files)} />
                     </label>
                 </div>
             </div>
@@ -410,8 +410,8 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
 
                                 <div className="flex items-center space-x-3">
                                     <label className="flex items-center text-[10px] font-black uppercase tracking-widest text-indigo-400 hover:text-indigo-300 px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 transition-all cursor-pointer">
-                                        <Upload className="h-3 w-3 mr-2" /> Substituir Fonte
-                                        <input type="file" className="hidden" accept=".pdf,image/*" onChange={(e) => e.target.files && onFileUpload(e.target.files)} />
+                                        <Upload className="h-3 w-3 mr-2" /> {allowMultiple ? "Adicionar/Substituir Fonte" : "Substituir Fonte"}
+                                        <input type="file" className="hidden" accept=".pdf,image/*" multiple={allowMultiple} onChange={(e) => e.target.files && onFileUpload(e.target.files)} />
                                     </label>
 
                                     {!isEditing ? (

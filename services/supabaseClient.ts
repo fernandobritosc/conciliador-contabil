@@ -12,17 +12,24 @@ export interface Database {
     Tables: {
       reconciliacoes: {
         Row: ReconciliationRecord;
-        Insert: Omit<ReconciliationRecord, 'id' | 'created_at'>;
-        Update: Partial<Omit<ReconciliationRecord, 'id' | 'created_at'>>;
-      }
-    }
+        Insert: ReconciliationRecord; // Facilitares upsert with ID
+        Update: Partial<ReconciliationRecord>;
+        Relationships: [];
+      };
+    };
     Views: {
-      [_ in never]: never
-    }
+      [_ in never]: never;
+    };
     Functions: {
-      [_ in never]: never
-    }
-  }
+      [_ in never]: never;
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
 }
 
 
