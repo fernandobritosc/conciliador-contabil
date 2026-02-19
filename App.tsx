@@ -59,11 +59,11 @@ const App: React.FC = () => {
   const [history, setHistory] = useState<ReconciliationRecord[]>([]);
   const [viewingRecord, setViewingRecord] = useState<ReconciliationRecord | null>(null);
 
-  const [relatorioData, setRelatorioData] = useState<RhRelatorioData | RhRelatorioData[] | null>(null);
-  const [retentionData, setRetentionData] = useState<RetentionReportData | RetentionReportData[] | null>(null);
-  const [empenhoData, setEmpenhoData] = useState<EmpenhoData | EmpenhoData[] | null>(null);
-  const [liquidacaoData, setLiquidacaoData] = useState<LiquidacaoData | LiquidacaoData[] | null>(null);
-  const [guiaData, setGuiaData] = useState<RhGuiaData | RhGuiaData[] | null>(null);
+  const [relatorioData, setRelatorioData] = useState<RhRelatorioData[]>([]);
+  const [retentionData, setRetentionData] = useState<RetentionReportData[]>([]);
+  const [empenhoData, setEmpenhoData] = useState<EmpenhoData[]>([]);
+  const [liquidacaoData, setLiquidacaoData] = useState<LiquidacaoData[]>([]);
+  const [guiaData, setGuiaData] = useState<RhGuiaData[]>([]);
 
   const [rhFiles, setRhFiles] = useState<File[]>([]);
   const [retentionFiles, setRetentionFiles] = useState<File[]>([]);
@@ -80,6 +80,11 @@ const App: React.FC = () => {
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
   const [uploadedFileUrls, setUploadedFileUrls] = useState<Record<string, string>>({});
+  const [currentReconciliationId, setCurrentReconciliationId] = useState<string | null>(null);
+  const [persistedFiles, setPersistedFiles] = useState<string[]>([]);
+  const [observacoes, setObservacoes] = useState('');
+  const [isRectifying, setIsRectifying] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
 
 
@@ -106,7 +111,19 @@ const App: React.FC = () => {
   }, []);
 
   const savePartialReconciliation = async (partialData: Partial<ReconciliationRecord>) => {
-    const id = viewingRecord?.id || partialData.id || crypto.randomUUID();
+    const id = currentReconciliationId || viewingRecord?.id || partialData.id || crypto.randomUUID();
+    if (!currentReconciliationId) setCurrentReconciliationId(id);
+
+    const allFiles = partialData.files || [
+      ...rhFiles.map(f => uploadedFileUrls[f.name] || f.name),
+      ...retentionFiles.map(f => uploadedFileUrls[f.name] || f.name),
+      ...empenhoFiles.map(f => uploadedFileUrls[f.name] || f.name),
+      ...liquidacaoFiles.map(f => uploadedFileUrls[f.name] || f.name),
+      ...guiaFiles.map(f => uploadedFileUrls[f.name] || f.name)
+    ];
+
+    const mergedFiles = Array.from(new Set([...persistedFiles, ...allFiles])).filter(Boolean);
+
     const newRecordData: ReconciliationRecord = {
       id,
       orgao: partialData.orgao || orgao,
@@ -114,17 +131,18 @@ const App: React.FC = () => {
       status: partialData.status || 'EM_ANDAMENTO',
       comparison_result: partialData.comparison_result || comparisonResult || null,
       nota_tecnica: partialData.nota_tecnica || viewingRecord?.nota_tecnica || notaTecnicaText || null,
+      observacoes: partialData.observacoes || observacoes || viewingRecord?.observacoes || null,
+      rh_relatorio_entries: partialData.rh_relatorio_entries || (relatorioData.length > 0 ? relatorioData : viewingRecord?.rh_relatorio_entries) || null,
+      retention_entries: partialData.retention_entries || (retentionData.length > 0 ? retentionData : viewingRecord?.retention_entries) || null,
+      empenho_entries: partialData.empenho_entries || (empenhoData.length > 0 ? empenhoData : viewingRecord?.empenho_entries) || null,
+      liquidacao_entries: partialData.liquidacao_entries || (liquidacaoData.length > 0 ? liquidacaoData : viewingRecord?.liquidacao_entries) || null,
+      guia_entries: partialData.guia_entries || (guiaData.length > 0 ? guiaData : viewingRecord?.guia_entries) || null,
       created_at: viewingRecord?.created_at || new Date().toISOString(),
-      files: partialData.files || viewingRecord?.files || [
-        ...rhFiles.map(f => uploadedFileUrls[f.name] || f.name),
-        ...retentionFiles.map(f => uploadedFileUrls[f.name] || f.name),
-        ...empenhoFiles.map(f => uploadedFileUrls[f.name] || f.name),
-        ...liquidacaoFiles.map(f => uploadedFileUrls[f.name] || f.name),
-        ...guiaFiles.map(f => uploadedFileUrls[f.name] || f.name)
-      ]
+      files: mergedFiles
     };
 
     try {
+      setSaveStatus('saving');
       const { data, error } = await supabase
         .from('reconciliacoes')
         .upsert(newRecordData as any)
@@ -148,9 +166,16 @@ const App: React.FC = () => {
       if (!viewingRecord || viewingRecord.id === savedRecord.id) {
         setViewingRecord(savedRecord);
       }
+      setPersistedFiles(savedRecord.files);
+
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+
       return savedRecord;
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to save partial reconciliation", err);
+      setSaveStatus('error');
+      alert(`ERRO AO SALVAR: ${err.message || JSON.stringify(err)}`);
     }
   };
 
@@ -158,6 +183,13 @@ const App: React.FC = () => {
     await savePartialReconciliation({
       status: result.finalStatus,
       comparison_result: result
+    });
+  };
+
+  const handleManualSave = async () => {
+    if (!orgao || !competencia) return;
+    await savePartialReconciliation({
+      observacoes: observacoes
     });
   };
 
@@ -211,9 +243,76 @@ const App: React.FC = () => {
     }
   };
 
-  const handleStartReconciliation = () => {
+  const handleStartReconciliation = async () => {
     if (orgao && competencia) {
-      resetAll(false);
+      if (!isRectifying) {
+        console.log(`[DEBUG] Starting reconciliation for: "${orgao}" - "${competencia}"`);
+        console.log(`[DEBUG] History length: ${history.length}`);
+        history.forEach(h => console.log(`[DEBUG] History item: "${h.orgao}" - "${h.competencia}" [${h.status}]`));
+
+        // CHECK FOR EXISTING PROGRESS
+        const existingRecord = history.find(h =>
+          h.orgao === orgao &&
+          h.competencia === competencia &&
+          (h.status === 'EM_ANDAMENTO' || h.status === 'DIVERGENTE' || h.status.includes('CONCILIADO'))
+        );
+
+        if (existingRecord) {
+          const confirmResume = window.confirm(
+            `Encontramos uma auditoria em andamento para ${orgao} - ${competencia}.\nDeseja retomar de onde parou?`
+          );
+
+          if (confirmResume) {
+            console.log("Resuming session:", existingRecord.id);
+            setViewingRecord(existingRecord);
+            setCurrentReconciliationId(existingRecord.id);
+
+            // Restore Internal State
+            if (existingRecord.rh_relatorio_entries) setRelatorioData(existingRecord.rh_relatorio_entries);
+            if (existingRecord.retention_entries) setRetentionData(existingRecord.retention_entries);
+            if (existingRecord.empenho_entries) setEmpenhoData(existingRecord.empenho_entries);
+            if (existingRecord.liquidacao_entries) setLiquidacaoData(existingRecord.liquidacao_entries);
+            if (existingRecord.guia_entries) setGuiaData(existingRecord.guia_entries);
+
+            if (existingRecord.observacoes) setObservacoes(existingRecord.observacoes);
+            if (existingRecord.comparison_result) setComparisonResult(existingRecord.comparison_result);
+            if (existingRecord.files) setPersistedFiles(existingRecord.files);
+
+            // Determine appropriate step based on data presence
+            if (existingRecord.comparison_result) {
+              setCurrentStep('COMPARISON');
+            } else if (existingRecord.guia_entries?.length) {
+              setCurrentStep('COMPARISON');
+            } else if (existingRecord.liquidacao_entries?.length) {
+              setCurrentStep('UPLOAD_GUIA');
+            } else if (existingRecord.empenho_entries?.length) {
+              setCurrentStep('UPLOAD_LIQUIDACAO');
+            } else if (existingRecord.retention_entries?.length) {
+              setCurrentStep('UPLOAD_EMPENHO');
+            } else if (existingRecord.rh_relatorio_entries?.length) {
+              setCurrentStep('UPLOAD_RETENTION');
+            } else {
+              setCurrentStep('UPLOAD_RH');
+            }
+
+            setView('process');
+            return;
+          }
+        }
+
+        resetAll(false);
+        const newId = crypto.randomUUID();
+        setCurrentReconciliationId(newId);
+
+        // Proactive save to prevent data loss
+        await savePartialReconciliation({
+          orgao,
+          competencia,
+          status: 'EM_ANDAMENTO',
+          observacoes: observacoes,
+          id: newId
+        });
+      }
       setCurrentStep('UPLOAD_RH');
       setView('process');
     }
@@ -233,6 +332,9 @@ const App: React.FC = () => {
       console.log(`[UPLOAD] Arquivos recebidos:`, actualFiles.map(f => ({ name: f.name, type: f.type, size: f.size })));
       setFiles(actualFiles);
 
+      // Store URLs locally to ensure we have them for the save call (state update is async)
+      const newFileUrls: string[] = [];
+
       // Upload files to Supabase Storage first
       if (orgao && competencia) {
         for (const file of actualFiles) {
@@ -244,6 +346,9 @@ const App: React.FC = () => {
           if (publicUrl) {
             console.log(`[UPLOAD] Arquivo salvo: ${publicUrl}`);
             setUploadedFileUrls(prev => ({ ...prev, [file.name]: publicUrl }));
+            newFileUrls.push(publicUrl);
+          } else {
+            newFileUrls.push(file.name);
           }
         }
       }
@@ -262,6 +367,24 @@ const App: React.FC = () => {
       const finalData = extractedResults.length > 1 ? extractedResults : extractedResults[0];
       console.log(`[UPLOAD] Definindo dados finais:`, finalData);
       setData(finalData);
+
+      // AUTO-SAVE: Persist immediately
+      const updatePayload: Partial<ReconciliationRecord> = {
+        files: newFileUrls.length > 0 ? newFileUrls : actualFiles.map(f => f.name)
+      };
+
+      // Ensure data is always an array for storage
+      const dataArray = Array.isArray(finalData) ? finalData : [finalData];
+
+      if (docType === 'Relatorio') updatePayload.rh_relatorio_entries = dataArray;
+      if (docType === 'Retention') updatePayload.retention_entries = dataArray;
+      if (docType === 'Empenho') updatePayload.empenho_entries = dataArray;
+      if (docType === 'Liquidacao') updatePayload.liquidacao_entries = dataArray;
+      if (docType === 'Guia') updatePayload.guia_entries = dataArray;
+
+      console.log(`[AUTO-SAVE] Saving upload progress for ${docType}...`);
+      await savePartialReconciliation(updatePayload);
+
     } catch (err: any) {
       console.error("[UPLOAD] Erro detalhado:", err);
       console.error("[UPLOAD] Stack trace:", err?.stack);
@@ -284,64 +407,128 @@ const App: React.FC = () => {
   const handleLiquidacaoUpload = createUploadHandler(setLiquidacaoFiles, setLiquidacaoData, 'Liquidacao', 'Nota de Liquidação');
   const handleGuiaUpload = createUploadHandler(setGuiaFiles, setGuiaData, 'Guia', 'Guia DARF');
 
-  const confirmRhData = (data: RhRelatorioData, files: File[]) => {
-    setRelatorioData(data);
+  const confirmRhData = (data: RhRelatorioData | RhRelatorioData[], files: File[]) => {
+    const dataArray = Array.isArray(data) ? data : [data];
+    setRelatorioData(dataArray);
     setRhFiles(files);
     setCurrentStep('UPLOAD_RETENTION');
-    savePartialReconciliation({ files: files.map(f => uploadedFileUrls[f.name] || f.name) });
-  };
-  const confirmRetentionData = (data: RetentionReportData, files: File[]) => {
-    setRetentionData(data);
-    setRetentionFiles(files);
-    setCurrentStep('UPLOAD_EMPENHO');
-    savePartialReconciliation({ files: [...rhFiles, ...files].map(f => uploadedFileUrls[f.name] || f.name) });
-  };
-  const confirmEmpenhoData = (data: EmpenhoData, files: File[]) => {
-    setEmpenhoData(data);
-    setEmpenhoFiles(files);
-    setCurrentStep('UPLOAD_LIQUIDACAO');
-    savePartialReconciliation({ files: [...rhFiles, ...retentionFiles, ...files].map(f => uploadedFileUrls[f.name] || f.name) });
-  };
-  const confirmLiquidacaoData = (data: LiquidacaoData, files: File[]) => {
-    setLiquidacaoData(data);
-    setLiquidacaoFiles(files);
-    setCurrentStep('UPLOAD_GUIA');
-    savePartialReconciliation({ files: [...rhFiles, ...retentionFiles, ...empenhoFiles, ...files].map(f => uploadedFileUrls[f.name] || f.name) });
+    const stepFiles = files.map(f => uploadedFileUrls[f.name] || f.name);
+    savePartialReconciliation({
+      orgao,
+      competencia,
+      rh_relatorio_entries: dataArray,
+      files: Array.from(new Set([...persistedFiles, ...stepFiles]))
+    });
   };
 
-  const confirmGuiaData = async (data: RhGuiaData, files: File[]) => {
-    setGuiaData(data);
+  const confirmRetentionData = (data: RetentionReportData | RetentionReportData[], files: File[]) => {
+    const dataArray = Array.isArray(data) ? data : [data];
+    setRetentionData(dataArray);
+    setRetentionFiles(files);
+    setCurrentStep('UPLOAD_EMPENHO');
+    const stepFiles = files.map(f => uploadedFileUrls[f.name] || f.name);
+    savePartialReconciliation({
+      retention_entries: dataArray,
+      files: Array.from(new Set([...persistedFiles, ...stepFiles]))
+    });
+  };
+
+  const confirmEmpenhoData = (data: EmpenhoData | EmpenhoData[], files: File[]) => {
+    const dataArray = Array.isArray(data) ? data : [data];
+    setEmpenhoData(dataArray);
+    setEmpenhoFiles(files);
+    setCurrentStep('UPLOAD_LIQUIDACAO');
+    const stepFiles = files.map(f => uploadedFileUrls[f.name] || f.name);
+    savePartialReconciliation({
+      empenho_entries: dataArray,
+      files: Array.from(new Set([...persistedFiles, ...stepFiles]))
+    });
+  };
+
+  const confirmLiquidacaoData = (data: LiquidacaoData | LiquidacaoData[], files: File[]) => {
+    const dataArray = Array.isArray(data) ? data : [data];
+    setLiquidacaoData(dataArray);
+    setLiquidacaoFiles(files);
+    setCurrentStep('UPLOAD_GUIA');
+    const stepFiles = files.map(f => uploadedFileUrls[f.name] || f.name);
+    savePartialReconciliation({
+      liquidacao_entries: dataArray,
+      files: Array.from(new Set([...persistedFiles, ...stepFiles]))
+    });
+  };
+
+  const confirmGuiaData = async (data: RhGuiaData | RhGuiaData[], files: File[]) => {
+    const dataArray = Array.isArray(data) ? data : [data];
+    setGuiaData(dataArray);
     setGuiaFiles(files);
-    if (relatorioData && !Array.isArray(relatorioData) &&
-      retentionData && !Array.isArray(retentionData) &&
-      empenhoData && !Array.isArray(empenhoData) &&
-      liquidacaoData && !Array.isArray(liquidacaoData)) {
+
+    const aggregateRelatorio = (items: RhRelatorioData[]) => items.reduce((acc, curr) => ({
+      valorSegurados: acc.valorSegurados + curr.valorSegurados,
+      valorEmpresa: acc.valorEmpresa + curr.valorEmpresa,
+      valorAcidente: acc.valorAcidente + curr.valorAcidente,
+      deducaoFpas: acc.deducaoFpas + curr.deducaoFpas,
+      totalARecolher: acc.totalARecolher + curr.totalARecolher,
+    }), { valorSegurados: 0, valorEmpresa: 0, valorAcidente: 0, deducaoFpas: 0, totalARecolher: 0 });
+
+    const aggregateRetention = (items: RetentionReportData[]) => items.reduce((acc, curr) => ({
+      valorRetido: acc.valorRetido + curr.valorRetido,
+      competencia: acc.competencia || curr.competencia,
+      empresa: acc.empresa || curr.empresa,
+    }), { valorRetido: 0, competencia: '', empresa: '' });
+
+    const aggregateEmpenho = (items: EmpenhoData[]) => items.reduce((acc, curr) => ({
+      numeroEmpenho: acc.numeroEmpenho ? `${acc.numeroEmpenho}, ${curr.numeroEmpenho}` : curr.numeroEmpenho,
+      valor: acc.valor + curr.valor,
+    }), { numeroEmpenho: '', valor: 0 });
+
+    const aggregateLiquidacao = (items: LiquidacaoData[]) => items.reduce((acc, curr) => ({
+      numeroEmpenho: acc.numeroEmpenho ? `${acc.numeroEmpenho}, ${curr.numeroEmpenho}` : curr.numeroEmpenho,
+      valorBruto: acc.valorBruto + curr.valorBruto,
+      salarioFamilia: acc.salarioFamilia + curr.salarioFamilia,
+      salarioMaternidade: acc.salarioMaternidade + curr.salarioMaternidade,
+    }), { numeroEmpenho: '', valorBruto: 0, salarioFamilia: 0, salarioMaternidade: 0 });
+
+    const aggregateGuia = (items: RhGuiaData[]) => items.reduce((acc, curr) => ({
+      valorSegurados: acc.valorSegurados + curr.valorSegurados,
+      valorEmpresa: acc.valorEmpresa + curr.valorEmpresa,
+      valorRiscoAmbiental: acc.valorRiscoAmbiental + curr.valorRiscoAmbiental,
+      valorContribIndividual: acc.valorContribIndividual + (curr.valorContribIndividual || 0),
+      totalGuia: acc.totalGuia + curr.totalGuia,
+    }), { valorSegurados: 0, valorEmpresa: 0, valorRiscoAmbiental: 0, valorContribIndividual: 0, totalGuia: 0 });
+
+    const finalRelatorio = aggregateRelatorio(relatorioData);
+    const finalRetention = aggregateRetention(retentionData);
+    const finalEmpenho = aggregateEmpenho(empenhoData);
+    const finalLiquidacao = aggregateLiquidacao(liquidacaoData);
+    const finalGuia = aggregateGuia(dataArray);
+
+    if (relatorioData.length > 0) {
       const tolerance = 0.05;
 
       const internalMatches = {
-        seguradosMatch: Math.abs(data.valorSegurados - retentionData.valorRetido) < tolerance,
-        empresaMatch: Math.abs(data.valorEmpresa - (liquidacaoData.valorBruto - liquidacaoData.salarioFamilia - liquidacaoData.salarioMaternidade)) < tolerance, // Ajuste para bater com patronal líquida
-        acidenteMatch: Math.abs(data.valorRiscoAmbiental - (relatorioData.valorAcidente)) < tolerance, // RAT geralmente é direto do RH ou Contabilidade
-        totalMatch: Math.abs(data.totalGuia - (retentionData.valorRetido + (liquidacaoData.valorBruto - liquidacaoData.salarioFamilia - liquidacaoData.salarioMaternidade) + relatorioData.valorAcidente + (data.valorContribIndividual || 0))) < tolerance
+        seguradosMatch: Math.abs(finalGuia.valorSegurados - finalRetention.valorRetido) < tolerance,
+        empresaMatch: Math.abs(finalGuia.valorEmpresa - (finalRelatorio.valorEmpresa - finalRelatorio.deducaoFpas)) < tolerance,
+        acidenteMatch: Math.abs(finalGuia.valorRiscoAmbiental - (finalRelatorio.valorAcidente)) < tolerance,
+        totalMatch: Math.abs(finalGuia.totalGuia - finalRelatorio.totalARecolher) < tolerance
       };
 
       const result: ComparisonResult = {
-        relatorioData,
-        retentionData, retentionMatch: Math.abs(retentionData.valorRetido - relatorioData.valorSegurados) < tolerance, retentionDifference: retentionData.valorRetido - relatorioData.valorSegurados,
-        empenhoData, empenhoMatch: Math.abs(empenhoData.valor - retentionData.valorRetido) < tolerance, empenhoDifference: empenhoData.valor - retentionData.valorRetido,
-        liquidacaoData, liquidacaoBrutoMatch: Math.abs(liquidacaoData.valorBruto - (relatorioData.valorEmpresa + relatorioData.valorAcidente)) < tolerance, liquidacaoBrutoDifference: liquidacaoData.valorBruto - (relatorioData.valorEmpresa + relatorioData.valorAcidente),
-        liquidacaoRetencaoMatch: Math.abs((liquidacaoData.salarioFamilia + liquidacaoData.salarioMaternidade) - relatorioData.deducaoFpas) < tolerance, liquidacaoRetencaoDifference: (liquidacaoData.salarioFamilia + liquidacaoData.salarioMaternidade) - relatorioData.deducaoFpas,
-        deducaoFpas: relatorioData.deducaoFpas,
-        segurados: { rh: relatorioData.valorSegurados, guia: data.valorSegurados, diff: data.valorSegurados - relatorioData.valorSegurados, status: Math.abs(data.valorSegurados - relatorioData.valorSegurados) < tolerance ? 'MATCH' : 'MISMATCH' },
-        empresa: { rh: relatorioData.valorEmpresa, guia: data.valorEmpresa, diff: data.valorEmpresa - relatorioData.valorEmpresa, status: Math.abs(data.valorEmpresa - relatorioData.valorEmpresa) < tolerance ? 'MATCH' : 'MISMATCH' },
-        acidente: { rh: relatorioData.valorAcidente, guia: data.valorRiscoAmbiental, diff: data.valorRiscoAmbiental - relatorioData.valorAcidente, status: Math.abs(data.valorRiscoAmbiental - relatorioData.valorAcidente) < tolerance ? 'MATCH' : 'MISMATCH' },
-        total: { rh: relatorioData.totalARecolher, guia: data.totalGuia, diff: data.totalGuia - relatorioData.totalARecolher, status: Math.abs(data.totalGuia - relatorioData.totalARecolher) < tolerance ? 'MATCH' : 'MISMATCH' },
+        relatorioData: finalRelatorio,
+        retentionData: finalRetention, retentionMatch: Math.abs(finalRetention.valorRetido - finalRelatorio.valorSegurados) < tolerance, retentionDifference: finalRetention.valorRetido - finalRelatorio.valorSegurados,
+        empenhoData: finalEmpenho, empenhoMatch: Math.abs(finalEmpenho.valor - finalRetention.valorRetido) < tolerance, empenhoDifference: finalEmpenho.valor - finalRetention.valorRetido,
+        liquidacaoData: finalLiquidacao, liquidacaoBrutoMatch: Math.abs(finalLiquidacao.valorBruto - (finalRelatorio.valorEmpresa + finalRelatorio.valorAcidente)) < tolerance, liquidacaoBrutoDifference: finalLiquidacao.valorBruto - (finalRelatorio.valorEmpresa + finalRelatorio.valorAcidente),
+        liquidacaoRetencaoMatch: Math.abs((finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade) - finalRelatorio.deducaoFpas) < tolerance, liquidacaoRetencaoDifference: (finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade) - finalRelatorio.deducaoFpas,
+        deducaoFpas: finalRelatorio.deducaoFpas,
+        segurados: { rh: finalRelatorio.valorSegurados, guia: finalGuia.valorSegurados, diff: finalGuia.valorSegurados - finalRelatorio.valorSegurados, status: Math.abs(finalGuia.valorSegurados - finalRelatorio.valorSegurados) < tolerance ? 'MATCH' : 'MISMATCH' },
+        empresa: { rh: finalRelatorio.valorEmpresa - finalRelatorio.deducaoFpas, guia: finalGuia.valorEmpresa, diff: finalGuia.valorEmpresa - (finalRelatorio.valorEmpresa - finalRelatorio.deducaoFpas), status: Math.abs(finalGuia.valorEmpresa - (finalRelatorio.valorEmpresa - finalRelatorio.deducaoFpas)) < tolerance ? 'MATCH' : 'MISMATCH' },
+        acidente: { rh: finalRelatorio.valorAcidente, guia: finalGuia.valorRiscoAmbiental, diff: finalGuia.valorRiscoAmbiental - finalRelatorio.valorAcidente, status: Math.abs(finalGuia.valorRiscoAmbiental - finalRelatorio.valorAcidente) < tolerance ? 'MATCH' : 'MISMATCH' },
+        total: { rh: finalRelatorio.totalARecolher, guia: finalGuia.totalGuia, diff: finalGuia.totalGuia - finalRelatorio.totalARecolher, status: Math.abs(finalGuia.totalGuia - finalRelatorio.totalARecolher) < tolerance ? 'MATCH' : 'MISMATCH' },
         internalMatches,
         triangulation: {
           rh_vs_contab: {
-            segurados: Math.abs(relatorioData.valorSegurados - retentionData.valorRetido) < tolerance,
-            empresa: Math.abs(relatorioData.valorEmpresa - (liquidacaoData.valorBruto - liquidacaoData.salarioFamilia - liquidacaoData.salarioMaternidade)) < tolerance,
-            total: Math.abs(relatorioData.totalARecolher - (retentionData.valorRetido + (liquidacaoData.valorBruto - liquidacaoData.salarioFamilia - liquidacaoData.salarioMaternidade))) < tolerance
+            segurados: Math.abs(finalRelatorio.valorSegurados - finalRetention.valorRetido) < tolerance,
+            empresa: Math.abs((finalRelatorio.valorEmpresa - finalRelatorio.deducaoFpas) - (finalLiquidacao.valorBruto - finalLiquidacao.salarioFamilia - finalLiquidacao.salarioMaternidade)) < tolerance,
+            total: Math.abs(finalRelatorio.totalARecolher - (finalRetention.valorRetido + (finalLiquidacao.valorBruto - finalLiquidacao.salarioFamilia - finalLiquidacao.salarioMaternidade))) < tolerance
           },
           contab_vs_darf: {
             segurados: internalMatches.seguradosMatch,
@@ -349,9 +536,9 @@ const App: React.FC = () => {
             total: internalMatches.totalMatch
           }
         },
-        totalContab: (retentionData.valorRetido + (liquidacaoData.valorBruto - liquidacaoData.salarioFamilia - liquidacaoData.salarioMaternidade)),
-        guiaData: data,
-        finalStatus: 'DIVERGENTE' // Default
+        totalContab: (finalRetention.valorRetido + (finalLiquidacao.valorBruto - finalLiquidacao.salarioFamilia - finalLiquidacao.salarioMaternidade)),
+        guiaData: finalGuia,
+        finalStatus: 'DIVERGENTE'
       };
 
       const rhMatches = [
@@ -366,6 +553,8 @@ const App: React.FC = () => {
 
       const accountingGuiaMatches = [
         internalMatches.seguradosMatch,
+        internalMatches.empresaMatch,
+        internalMatches.acidenteMatch,
         internalMatches.totalMatch
       ].every(Boolean);
 
@@ -420,6 +609,10 @@ const App: React.FC = () => {
     setRelatorioData(null); setRetentionData(null); setEmpenhoData(null); setLiquidacaoData(null); setGuiaData(null);
     setRhFiles([]); setRetentionFiles([]); setEmpenhoFiles([]); setLiquidacaoFiles([]); setGuiaFiles([]);
     setComparisonResult(null); setNotaTecnicaText(null); setError(null); setViewingRecord(null);
+    setCurrentReconciliationId(null);
+    setPersistedFiles([]);
+    setObservacoes('');
+    setIsRectifying(false);
     if (goToNew) {
       setView('new');
       setOrgao('');
@@ -440,41 +633,28 @@ const App: React.FC = () => {
   const handleRectify = (record: ReconciliationRecord) => {
     setOrgao(record.orgao);
     setCompetencia(record.competencia);
+    setObservacoes(record.observacoes || '');
+    setIsRectifying(true);
+    setCurrentReconciliationId(record.id);
 
-    const res = record.comparison_result;
-
-    setRelatorioData({
-      valorSegurados: res.segurados.rh,
-      valorEmpresa: res.empresa.rh,
-      valorAcidente: res.acidente.rh,
-      deducaoFpas: res.deducaoFpas,
-      totalARecolher: res.total.rh,
-    });
-
-    setRetentionData(res.retentionData || null);
-    setEmpenhoData(res.empenhoData || null);
-    setLiquidacaoData(res.liquidacaoData || null);
-
-    setGuiaData({
-      valorSegurados: res.segurados.guia,
-      valorEmpresa: res.empresa.guia,
-      valorRiscoAmbiental: res.acidente.guia,
-      valorContribIndividual: res.guiaData?.valorContribIndividual || 0,
-      totalGuia: res.total.guia,
-    });
+    setRelatorioData(record.rh_relatorio_entries || []);
+    setRetentionData(record.retention_entries || []);
+    setEmpenhoData(record.empenho_entries || []);
+    setLiquidacaoData(record.liquidacao_entries || []);
+    setGuiaData(record.guia_entries || []);
 
     setRhFiles([]);
     setRetentionFiles([]);
     setEmpenhoFiles([]);
     setLiquidacaoFiles([]);
     setGuiaFiles([]);
-
     setComparisonResult(null);
     setNotaTecnicaText(null);
     setError(null);
     setViewingRecord(null);
+    setPersistedFiles(record.files || []);
 
-    setView('process');
+    setView('new');
     setCurrentStep('UPLOAD_RH');
   };
 
@@ -485,35 +665,48 @@ const App: React.FC = () => {
           <PlusCircle className="h-10 w-10 text-indigo-400" />
         </div>
         <div>
-          <h2 className="text-3xl font-extrabold text-white tracking-tight">Iniciar Auditoria</h2>
-          <p className="text-slate-400 font-medium">Configure os parâmetros básicos para sua nova conciliação.</p>
+          <h2 className="text-3xl font-extrabold text-white tracking-tight">
+            {isRectifying ? 'Retificar Conciliação' : 'Iniciar Auditoria'}
+          </h2>
+          <p className="text-slate-400 font-medium">Configure os parâmetros básicos para sua conciliação.</p>
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
         <div className="space-y-2">
-          <label htmlFor="orgao" className="block text-xs font-bold uppercase tracking-[0.2em] text-indigo-400">Entidade / Órgão</label>
+          <label htmlFor="orgao" className="block text-xs font-bold uppercase tracking-[0.2em] text-indigo-400 font-mono">Entidade / Órgão</label>
           <select id="orgao" value={orgao} onChange={(e) => setOrgao(e.target.value)} className="bg-slate-800/50 text-slate-100 w-full px-4 py-3 border border-white/5 rounded-xl shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-500/50 appearance-none cursor-pointer transition-all">
             <option value="">Selecione a entidade...</option>
             {ORGAOS.map(o => <option key={o} value={o} className="bg-slate-900">{o}</option>)}
           </select>
         </div>
         <div className="space-y-2">
-          <label htmlFor="competencia" className="block text-xs font-bold uppercase tracking-[0.1em] text-indigo-400">Competência (MM/AAAA)</label>
+          <label htmlFor="competencia" className="block text-xs font-bold uppercase tracking-[0.1em] text-indigo-400 font-mono">Competência (MM/AAAA)</label>
           <input type="text" id="competencia" value={competencia} onChange={(e) => setCompetencia(e.target.value)} placeholder="01/2026" className="bg-slate-800/50 text-slate-100 w-full px-4 py-3 border border-white/5 rounded-xl shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all" />
         </div>
       </div>
-      <div className="mt-12">
-        <button
-          onClick={handleStartReconciliation}
-          disabled={!orgao || !competencia}
-          className="w-full relative group overflow-hidden px-8 py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-xl hover:shadow-indigo-500/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-          <span className="relative z-10 flex items-center justify-center">
-            Configurar Processo <ArrowLeft className="h-5 w-5 ml-2 rotate-180" />
-          </span>
-        </button>
+
+      <div className="space-y-2 mb-10">
+        <label htmlFor="observacoes" className="block text-xs font-bold uppercase tracking-[0.1em] text-indigo-400 font-mono">Informações Adicionais (Blindadas)</label>
+        <textarea
+          id="observacoes"
+          value={observacoes}
+          onChange={(e) => setObservacoes(e.target.value)}
+          placeholder="Insira detalhes que devem acompanhar este dossiê permanentemente..."
+          rows={3}
+          className="bg-slate-800/50 text-slate-100 w-full px-4 py-3 border border-white/5 rounded-xl shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all resize-none"
+        />
       </div>
+
+      <button
+        onClick={handleStartReconciliation}
+        disabled={!orgao || !competencia}
+        className="w-full relative group overflow-hidden px-8 py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-xl hover:shadow-indigo-500/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+      >
+        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        <span className="relative z-10 flex items-center justify-center">
+          {isRectifying ? 'Confirmar e Continuar' : 'Configurar Processo'} <ArrowLeft className="h-5 w-5 ml-2 rotate-180" />
+        </span>
+      </button>
     </div>
   );
 
@@ -755,7 +948,13 @@ const App: React.FC = () => {
     <div className="flex h-screen bg-[#0b0f19] font-sans text-slate-200">
       <Sidebar currentView={view} setView={setView} />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header orgao={view === 'process' ? orgao : undefined} competencia={view === 'process' ? competencia : undefined} />
+        <Header
+          orgao={view === 'process' ? orgao : undefined}
+          competencia={view === 'process' ? competencia : undefined}
+          observacoes={view === 'process' ? observacoes : undefined}
+          saveStatus={saveStatus}
+          onManualSave={view === 'process' ? handleManualSave : undefined}
+        />
         <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8 custom-scrollbar">
           {view === 'new' && renderNewScreen()}
           {view === 'history' && renderHistoryScreen()}

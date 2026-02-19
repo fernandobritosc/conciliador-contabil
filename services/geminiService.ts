@@ -146,10 +146,11 @@ export const generateNotaTecnica = async (finalData: ComparisonResult): Promise<
     INSTRUÇÕES PARA O PARECER TÉCNICO:
     - O texto deve ser formal, técnico, direto e gramaticalmente impecável em português do Brasil.
     - SE o status for 'CONCILIADO_COM_RESSALVA', declare que os valores da Contabilidade e do DARF coincidem, justificando o parecer favorável, mas aponte a divergência com o RH como uma ressalva que precisa de ajuste administrativo.
-    - NÃO utilize NENHUMA formatação markdown (sem '**', '*', '#', etc.). A saída deve ser texto puro.
+    - NÃO utilize NENHUMA formatação markdown (sem '**', '*', '#', etc.). A saída deve ser texto puro estruturado em parágrafos.
+    - EVITE quebras de linha no meio de frases ou cálculos. Cada parágrafo deve ser um bloco de texto contínuo.
     - Se houver divergências (Status DIVERGENTE), aponte-as de forma clara e objetiva, preferencialmente em uma lista, indicando o ponto da divergência e a ação corretiva necessária. Foque em sanar o problema.
     - Se estiver CONCILIADO, emita uma nota de conformidade sucinta, declarando que todos os valores (RH, Contabilidade e Guia) foram verificados e estão em total acordo.
-    - Estruture em: "1. Análise da Conciliação" e "2. Conclusão". A seção "Recomendações" só é necessária se houver divergências ou ressalvas.
+    - Estruture em seções numeradas: "1. OBJETIVO", "2. ANÁLISE TÉCNICA", "3. CONCLUSÃO".
     - O título principal, "PARECER TÉCNICO DE CONCILIAÇÃO PREVIDENCIÁRIA", não deve ser incluído no corpo da sua resposta, ele será adicionado externamente.
   `;
 

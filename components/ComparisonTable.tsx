@@ -94,10 +94,10 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
                     { label: 'Segurados vs Retenção', valA: finalData.segurados.rh, valB: finalData.retentionData?.valorRetido || 0, match: finalData.retentionMatch, linkA: finalData.triangulation?.rh_vs_contab.segurados, linkB: finalData.triangulation?.contab_vs_darf.segurados, desc: 'RH vs Retenção Contábil' },
                     { label: 'Retenção vs Empenho', valA: finalData.retentionData?.valorRetido || 0, valB: finalData.empenhoData?.valor || 0, match: finalData.empenhoMatch, linkA: true, linkB: true, desc: 'Retenção vs Empenho' },
                     { label: 'Patronal (RH vs Liquidação)', valA: (finalData.empresa.rh + finalData.acidente.rh), valB: finalData.liquidacaoData?.valorBruto || 0, match: finalData.liquidacaoBrutoMatch, linkA: finalData.triangulation?.rh_vs_contab.empresa, linkB: true, desc: 'RH vs Liquidação Bruta' },
-                    { label: 'RH vs Guia (Segurados)', valA: finalData.segurados.rh, valB: finalData.segurados.guia, match: finalData.segurados.status === 'MATCH', linkA: finalData.triangulation?.rh_vs_contab.segurados, linkB: finalData.triangulation?.contab_vs_darf.segurados, desc: 'RH vs DARF 1082' },
-                    { label: 'RH vs Guia (Patronal)', valA: finalData.empresa.rh, valB: finalData.empresa.guia, match: finalData.empresa.status === 'MATCH', linkA: finalData.triangulation?.rh_vs_contab.empresa, linkB: finalData.triangulation?.contab_vs_darf.empresa, desc: 'RH vs DARF 1138' },
-                    { label: 'RH vs Guia (Total)', valA: finalData.total.rh, valB: finalData.total.guia, match: finalData.total.status === 'MATCH', linkA: finalData.triangulation?.rh_vs_contab.total, linkB: finalData.triangulation?.contab_vs_darf.total, desc: 'Cruzamento Final' },
-                ].map((item, idx) => {
+                    { label: 'RH vs Guia (Segurados)', valA: finalData.segurados.rh, valB: finalData.segurados.guia, match: finalData.segurados.status === 'MATCH', linkA: finalData.triangulation?.rh_vs_contab.segurados, linkB: finalData.triangulation?.contab_vs_darf.segurados, desc: 'RH vs DARF 1082', labelB: 'GUIA' },
+                    { label: 'RH vs Guia (Patronal)', valA: finalData.empresa.rh, valB: finalData.empresa.guia, match: finalData.empresa.status === 'MATCH', linkA: finalData.triangulation?.rh_vs_contab.empresa, linkB: finalData.triangulation?.contab_vs_darf.empresa, desc: 'RH vs DARF 1138', labelB: 'GUIA' },
+                    { label: 'RH vs Guia (Total)', valA: finalData.total.rh, valB: finalData.total.guia, match: finalData.total.status === 'MATCH', linkA: finalData.triangulation?.rh_vs_contab.total, linkB: finalData.triangulation?.contab_vs_darf.total, desc: 'Cruzamento Final', labelB: 'GUIA' },
+                ].map((item: any, idx) => {
                     const isRessalva = !item.match && item.linkB;
                     return (
                         <div key={idx} className={`glass-card p-5 rounded-2xl border transition-all duration-300 flex flex-col justify-between ${item.match ? 'border-white/5 bg-white/[0.01]' : isRessalva ? 'border-cyan-500/30 bg-cyan-500/10 shadow-lg shadow-cyan-500/5' : 'border-red-500/20 bg-red-500/10 shadow-lg shadow-red-500/5'}`}>
@@ -118,7 +118,7 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
                                             RH <Check className="h-2.5 w-2.5" />
                                         </div>
                                         <div title="Contab ↔ DARF" className={`px-2 py-1 rounded-lg text-[9px] font-bold flex items-center gap-1 ${item.linkB ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30' : 'bg-red-500/20 text-red-500 border border-red-500/30'}`}>
-                                            CONTAB <Check className="h-2.5 w-2.5" />
+                                            {item.labelB || 'CONTAB.'} <Check className="h-2.5 w-2.5" />
                                         </div>
                                     </div>
                                     <p className={`text-base font-black font-mono tracking-tighter ${item.match ? 'text-emerald-400' : isRessalva ? 'text-cyan-400' : 'text-red-400'}`}>
@@ -133,7 +133,7 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
                                     <p className="text-[11px] font-bold text-white font-mono">{item.valA.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                                 </div>
                                 <div className="flex-1 bg-slate-900/40 p-2 rounded-xl border border-white/5">
-                                    <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1 text-right">CONTAB.</p>
+                                    <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1 text-right">{item.labelB || 'CONTAB.'}</p>
                                     <p className="text-[11px] font-bold text-white font-mono text-right">{item.valB.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                                 </div>
                             </div>

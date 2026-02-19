@@ -87,6 +87,12 @@ export interface ReconciliationRecord {
   status: 'CONCILIADO' | 'CONCILIADO_COM_RESSALVA' | 'DIVERGENTE' | 'EM_ANDAMENTO';
   comparison_result: ComparisonResult | null;
   nota_tecnica: string | null;
+  observacoes: string | null;
+  rh_relatorio_entries: any[] | null;
+  retention_entries: any[] | null;
+  empenho_entries: any[] | null;
+  liquidacao_entries: any[] | null;
+  guia_entries: any[] | null;
   created_at: string;
   files: string[];
 }

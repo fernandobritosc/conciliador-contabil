@@ -82,28 +82,30 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
     };
 
     useEffect(() => {
-        if (Array.isArray(data)) {
+        if (Array.isArray(data) && data.length > 0) {
             const entries: ManualEntry[] = data.map((item, idx) => ({
                 id: Date.now() + idx,
                 formValues: dataToFormValues(item),
-                file: files[idx] || null,
+                file: (files && files[idx]) || null,
                 source: iaSource,
                 reportType: iaReportType
             }));
             setManualEntries(entries);
             setMode('manual');
             setIsEditing(false);
-        } else if (data) {
+        } else if (data && !Array.isArray(data)) {
             setEditableData(data);
             setFormValues(dataToFormValues(data));
             setMode('ia');
             setIsEditing(false);
             if (error) setIsEditing(true);
-        } else {
+        } else if (!data) {
             setMode('choice');
             setManualEntries([]);
+            setEditableData(null);
         }
     }, [data, error, files]);
+
 
     const parse = (val: string) => parseFloat(String(val || '0').replace(/\./g, '').replace(',', '.')) || 0;
 
@@ -137,32 +139,33 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
     const removeEntry = (id: number) => setManualEntries(prev => prev.filter(entry => entry.id !== id));
 
     const handleConfirm = () => {
-        if (mode === 'manual') {
-            const aggregatedData = blankDataFactory();
-            const allFiles: File[] = [];
-
-            manualEntries.forEach(entry => {
-                fields.forEach(field => {
-                    if (field.type === 'number') {
-                        aggregatedData[field.key] = (aggregatedData[field.key] || 0) + parse(entry.formValues[field.key]);
-                    } else {
-                        if (!aggregatedData[field.key]) aggregatedData[field.key] = entry.formValues[field.key];
-                    }
-                });
-                if (entry.file) allFiles.push(entry.file);
-            });
-            onConfirm(aggregatedData, allFiles);
-        } else {
-            const finalData = blankDataFactory();
+        const dataToReturn = manualEntries.map(entry => {
+            const entryData = blankDataFactory();
             fields.forEach(field => {
-                const value = isEditing ? formValues[field.key] : (editableData ? editableData[field.key] : null);
-                if (field.type === 'number') finalData[field.key] = typeof value === 'string' ? parse(value) : value;
-                else finalData[field.key] = value;
+                const value = entry.formValues[field.key];
+                if (field.type === 'number') entryData[field.key] = parse(value);
+                else entryData[field.key] = value;
             });
-            onConfirm(finalData, files);
-        }
-    };
+            return entryData;
+        });
 
+        if (mode === 'ia' && editableData) {
+            const entryData = blankDataFactory();
+            fields.forEach(field => {
+                const value = isEditing ? formValues[field.key] : editableData[field.key];
+                if (field.type === 'number') entryData[field.key] = typeof value === 'string' ? parse(value) : value;
+                else entryData[field.key] = value;
+            });
+            dataToReturn.push(entryData);
+        }
+
+        const allFiles: File[] = [
+            ...files,
+            ...manualEntries.map(e => e.file).filter((f): f is File => f !== null)
+        ];
+
+        onConfirm(dataToReturn, allFiles);
+    };
     const handleManualMode = () => {
         addEntry();
         setMode('manual');
@@ -416,9 +419,16 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
                                     </label>
 
                                     {!isEditing ? (
-                                        <button onClick={() => setIsEditing(true)} className="flex items-center text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white px-4 py-2 rounded-xl bg-white/5 border border-white/10 transition-all">
-                                            <Edit2 className="h-3 w-3 mr-2" />Editar
-                                        </button>
+                                        <div className="flex items-center space-x-3">
+                                            {allowMultiple && (
+                                                <button onClick={addEntry} className="flex items-center text-[10px] font-black uppercase tracking-widest text-indigo-400 hover:text-indigo-300 px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 transition-all">
+                                                    <PlusCircle className="h-3 w-3 mr-2" />Adicionar Lançamento
+                                                </button>
+                                            )}
+                                            <button onClick={() => setIsEditing(true)} className="flex items-center text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white px-4 py-2 rounded-xl bg-white/5 border border-white/10 transition-all">
+                                                <Edit2 className="h-3 w-3 mr-2" />Editar
+                                            </button>
+                                        </div>
                                     ) : (
                                         <button onClick={() => setIsEditing(false)} className="flex items-center text-[10px] font-black uppercase tracking-widest text-emerald-400 hover:text-emerald-300 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 transition-all">
                                             <Save className="h-3 w-3 mr-2" />Salvar
@@ -471,8 +481,8 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
                         </div>
                     )}
 
-                    {mode === 'manual' && (
-                        <div className="space-y-8">
+                    {((mode === 'manual') || (mode === 'ia' && manualEntries.length > 0)) && (
+                        <div className="space-y-8 mt-10">
                             {manualEntries.map((entry, index) => (
                                 <div key={entry.id} className="glass-card p-8 rounded-3xl border-white/5 relative bg-white/[0.01]">
                                     <div className="flex justify-between items-center mb-8">
