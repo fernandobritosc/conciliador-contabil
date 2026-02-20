@@ -6,10 +6,11 @@ interface HeaderProps {
   competencia?: string;
   observacoes?: string;
   saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
+  lastSavedAt?: Date | null;
   onManualSave?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ orgao, competencia, observacoes, saveStatus, onManualSave }) => {
+export const Header: React.FC<HeaderProps> = ({ orgao, competencia, observacoes, saveStatus, lastSavedAt, onManualSave }) => {
   return (
     <header className="glass-effect sticky top-0 z-50 border-b border-white/5 h-20 flex items-center">
       <div className="container mx-auto px-8 flex items-center justify-between">
@@ -57,9 +58,16 @@ export const Header: React.FC<HeaderProps> = ({ orgao, competencia, observacoes,
             </div>
           )}
           {saveStatus === 'saved' && (
-            <div className="flex items-center space-x-2 text-emerald-400 animate-fade-in">
-              <CheckCircle className="h-4 w-4" />
-              <span className="text-xs font-semibold uppercase tracking-wider">Salvo</span>
+            <div className="flex flex-col items-end animate-fade-in">
+              <div className="flex items-center space-x-2 text-emerald-400">
+                <CheckCircle className="h-4 w-4" />
+                <span className="text-xs font-semibold uppercase tracking-wider">Salvo</span>
+              </div>
+              {lastSavedAt && (
+                <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">
+                  Às {lastSavedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
             </div>
           )}
           {saveStatus === 'error' && (

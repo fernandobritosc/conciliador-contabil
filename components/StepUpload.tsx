@@ -99,10 +99,12 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
             setMode('ia');
             setIsEditing(false);
             if (error) setIsEditing(true);
-        } else if (!data) {
+        } else {
+            // Case where data is null or empty array
             setMode('choice');
             setManualEntries([]);
             setEditableData(null);
+            setFormValues({});
         }
     }, [data, error, files]);
 

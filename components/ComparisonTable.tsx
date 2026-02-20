@@ -14,6 +14,7 @@ interface ComparisonTableProps {
     isHistoryView: boolean;
     files: (File | string | null)[];
     onSaveNotaTecnica: (nota: string) => Promise<void>;
+    onNotaChange: (nota: string) => void;
 }
 
 const ComparisonTable: React.FC<ComparisonTableProps> = ({
@@ -25,7 +26,8 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
     onRectify,
     isHistoryView,
     files,
-    onSaveNotaTecnica
+    onSaveNotaTecnica,
+    onNotaChange
 }) => {
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const [isSavingNote, setIsSavingNote] = useState(false);
@@ -275,7 +277,10 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
                 <div className="rounded-2xl overflow-hidden border border-white/5 bg-slate-900/50 p-1">
                     <RichTextEditor
                         value={editableNotaTecnica}
-                        onChange={setEditableNotaTecnica}
+                        onChange={(val) => {
+                            setEditableNotaTecnica(val);
+                            onNotaChange(val);
+                        }}
                     />
                 </div>
 
