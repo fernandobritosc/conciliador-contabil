@@ -1,5 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { RhRelatorioData, RhGuiaData, RetentionReportData, ComparisonResult, EmpenhoData, LiquidacaoData } from '../types';
+import { RhRelatorioSchema, RhGuiaSchema, RetentionReportSchema, EmpenhoSchema, LiquidacaoSchema } from './validationSchema';
+import { logger } from './logger';
 
 const cleanJsonString = (text: string): string => {
   const match = text.match(/```json\s*([\s\S]*?)\s*```/);
@@ -65,8 +67,7 @@ export async function extractData(
   type: 'Relatorio' | 'Guia' | 'Retention' | 'Empenho' | 'Liquidacao'
 ): Promise<RhRelatorioData | RhGuiaData | RetentionReportData | EmpenhoData | LiquidacaoData> {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) throw new Error("API Key is required. Please check your environment configuration.");
-
+  if (!apiKey) throw new Error("API Key is required. Please check sua configuração de ambiente no .env.local.");
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
   const prompt = getExtractionPrompt(type);
@@ -80,7 +81,21 @@ export async function extractData(
     if (!textContent) throw new Error("A API não retornou conteúdo válido.");
 
     const cleanedJson = cleanJsonString(textContent);
-    return JSON.parse(cleanedJson);
+    const rawData = JSON.parse(cleanedJson);
+
+    // BLINDAGEM: Validação de Dados Pós-IA
+    try {
+      switch (type) {
+        case 'Relatorio': return RhRelatorioSchema.parse(rawData);
+        case 'Guia': return RhGuiaSchema.parse(rawData);
+        case 'Retention': return RetentionReportSchema.parse(rawData);
+        case 'Empenho': return EmpenhoSchema.parse(rawData);
+        case 'Liquidacao': return LiquidacaoSchema.parse(rawData);
+      }
+    } catch (validationError) {
+      logger.error(`Falha na validação do contrato de dados (${type})`, validationError, { rawData });
+      throw new Error(`Dados corrompidos gerados pela IA para ${type}. A operação foi abortada para proteger seu histórico.`);
+    }
   } catch (error: any) {
     console.error(`Erro na extração Gemini para o tipo ${type}:`, error);
 
@@ -110,7 +125,7 @@ export async function extractData(
 
 export const generateNotaTecnica = async (finalData: ComparisonResult): Promise<string> => {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  if (!apiKey) throw new Error("API Key is required. Please check your environment configuration.");
+  if (!apiKey) throw new Error("API Key is required. Please check sua configuração de ambiente no .env.local.");
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 

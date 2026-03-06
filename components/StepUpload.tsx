@@ -470,6 +470,8 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
                                                 {f.type === 'number' && <span className="absolute left-3 top-3 text-slate-500 text-sm">R$</span>}
                                                 <input
                                                     type="text"
+                                                    id={`ia-field-${f.key}`}
+                                                    name={f.key}
                                                     readOnly={f.isCalculated}
                                                     value={formValues[f.key] || ''}
                                                     onChange={(e) => setFormValues(handleAutoSum({ ...formValues, [f.key]: e.target.value }))}
@@ -522,6 +524,8 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
                                                     {f.type === 'number' && <span className="absolute left-0 top-2 text-slate-600 font-bold">R$</span>}
                                                     <input
                                                         type="text"
+                                                        id={`manual-field-${entry.id}-${f.key}`}
+                                                        name={f.key}
                                                         readOnly={f.isCalculated}
                                                         value={entry.formValues[f.key] || ''}
                                                         onChange={(e) => handleInputChange(entry.id, f.key, e.target.value)}

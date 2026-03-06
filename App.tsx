@@ -1,13 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { RhRelatorioData, RhGuiaData, RetentionReportData, ComparisonResult, Step, EmpenhoData, LiquidacaoData, ReconciliationRecord } from './types';
-import { generateNotaTecnica, extractData } from './services/geminiService';
-import { supabase, uploadFile } from './services/supabaseClient';
+import React, { useState } from 'react';
+import { Step } from './types';
+import { extractData, generateNotaTecnica } from './services/geminiService';
+import { logger } from './services/logger';
+import { useReconciliation } from './hooks/useReconciliation';
+
+// Componentes
 import StepUpload from './components/StepUpload';
 import ComparisonTable from './components/ComparisonTable';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
-import Settings from './components/Settings';
-import { ArrowLeft, PlusCircle, History, Eye, CheckCircle, XCircle, Loader2, AlertTriangle, Trash2 } from 'lucide-react';
+
+// Ícones
+import { PlusCircle, History, Loader2, Eye, Trash2, ArrowLeft } from 'lucide-react';
 
 const ORGAOS = [
   "PREFEITURA MUNICIPAL DE SENADOR CANEDO",
@@ -18,977 +22,326 @@ const ORGAOS = [
   "FUMDEC - FUNDO MUNICIPAL DE PROTEÇÃO E DEFESA CIVIL",
   "FUNDEB - SENADOR CANEDO",
   "FUNDI - FUNDO MUNICIPAL DOS DIREITOS DO IDOSO",
-  "FUNDO MUNICIPAL DE BEM-ESTAR E PROTECAO ANIMAL - FUMBEPA",
   "IAMESC - INSTITUTO DE ASSISTÊNCIA A SAUDE DO SERV PUBLICO",
   "INSTITUTO DE PREVIDENCIA DO SERVIDOR PUBLICO DE SENADOR CANEDO - SENAPR",
 ];
 
-const fileToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve((reader.result as string).split(',')[1]);
-    reader.onerror = error => reject(error);
-  });
-};
-
-const createBlankData = (type: 'Relatorio' | 'Guia' | 'Retention' | 'Empenho' | 'Liquidacao') => {
-  switch (type) {
-    case 'Relatorio': return { valorSegurados: 0, valorEmpresa: 0, valorAcidente: 0, deducaoFpas: 0, totalARecolher: 0 };
-    case 'Guia': return { valorSegurados: 0, valorEmpresa: 0, valorRiscoAmbiental: 0, valorContribIndividual: 0, totalGuia: 0 };
-    case 'Retention': return { valorRetido: 0, competencia: '', empresa: '' };
-    case 'Empenho': return { numeroEmpenho: '', valor: 0 };
-    case 'Liquidacao': return { numeroEmpenho: '', valorBruto: 0, salarioFamilia: 0, salarioMaternidade: 0 };
-    default: return {};
-  }
-};
-
-type View = 'new' | 'history' | 'process';
-
-
 const App: React.FC = () => {
-  if (!supabase) {
-    return <Settings />;
-  }
+  const [view, setView] = useState<'new' | 'history' | 'process'>('new');
 
-  const [view, setView] = useState<View>('new');
-  const [currentStep, setCurrentStep] = useState<Step>('UPLOAD_RH');
+  const {
+    currentStep, setCurrentStep,
+    orgao, setOrgao,
+    competencia, setCompetencia,
+    history,
+    viewingRecord, setViewingRecord,
+    relatorioData, setRelatorioData,
+    retentionData, setRetentionData,
+    empenhoData, setEmpenhoData,
+    liquidacaoData, setLiquidacaoData,
+    guiaData, setGuiaData,
+    rhFiles, setRhFiles,
+    retentionFiles, setRetentionFiles,
+    empenhoFiles, setEmpenhoFiles,
+    liquidacaoFiles, setLiquidacaoFiles,
+    guiaFiles, setGuiaFiles,
+    comparisonResult,
+    notaTecnicaText, setNotaTecnicaText,
+    isLoading, setIsLoading,
+    isHistoryLoading,
+    error, setError,
+    saveStatus,
+    savePartialReconciliation,
+    performComparison,
+  } = useReconciliation();
 
-  const [orgao, setOrgao] = useState('');
-  const [competencia, setCompetencia] = useState('');
-  const [history, setHistory] = useState<ReconciliationRecord[]>([]);
-  const [viewingRecord, setViewingRecord] = useState<ReconciliationRecord | null>(null);
-
-  const [relatorioData, setRelatorioData] = useState<RhRelatorioData[]>([]);
-  const [retentionData, setRetentionData] = useState<RetentionReportData[]>([]);
-  const [empenhoData, setEmpenhoData] = useState<EmpenhoData[]>([]);
-  const [liquidacaoData, setLiquidacaoData] = useState<LiquidacaoData[]>([]);
-  const [guiaData, setGuiaData] = useState<RhGuiaData[]>([]);
-
-  const [rhFiles, setRhFiles] = useState<File[]>([]);
-  const [retentionFiles, setRetentionFiles] = useState<File[]>([]);
-  const [empenhoFiles, setEmpenhoFiles] = useState<File[]>([]);
-  const [liquidacaoFiles, setLiquidacaoFiles] = useState<File[]>([]);
-  const [guiaFiles, setGuiaFiles] = useState<File[]>([]);
-
-  const [comparisonResult, setComparisonResult] = useState<ComparisonResult | null>(null);
-  const [notaTecnicaText, setNotaTecnicaText] = useState<string | null>(null);
-
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isLoadingNotaTecnica, setIsLoadingNotaTecnica] = useState(false);
-  const [isHistoryLoading, setIsHistoryLoading] = useState(true);
-  const [dbError, setDbError] = useState<string | null>(null);
-  const [uploadedFileUrls, setUploadedFileUrls] = useState<Record<string, string>>({});
-  const [currentReconciliationId, setCurrentReconciliationId] = useState<string | null>(null);
-  const [persistedFiles, setPersistedFiles] = useState<string[]>([]);
-  const [observacoes, setObservacoes] = useState('');
-  const [isRectifying, setIsRectifying] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
-
-
-
-  useEffect(() => {
-    const fetchHistory = async () => {
-      setIsHistoryLoading(true);
-      setDbError(null);
-      try {
-        const { data, error } = await supabase
-          .from('reconciliacoes')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        setHistory(data as unknown as ReconciliationRecord[]);
-      } catch (err: any) {
-        console.error("Failed to load history from Supabase", err);
-        setDbError("Falha ao carregar histórico do banco de dados. Verifique sua conexão e as configurações do Supabase.");
-      } finally {
-        setIsHistoryLoading(false);
-      }
-    };
-    fetchHistory();
-  }, []);
-
-  const savePartialReconciliation = async (partialData: Partial<ReconciliationRecord>) => {
-    const id = currentReconciliationId || viewingRecord?.id || partialData.id || crypto.randomUUID();
-    if (!currentReconciliationId) setCurrentReconciliationId(id);
-
-    const allFiles = partialData.files || [
-      ...rhFiles.map(f => uploadedFileUrls[f.name] || f.name),
-      ...retentionFiles.map(f => uploadedFileUrls[f.name] || f.name),
-      ...empenhoFiles.map(f => uploadedFileUrls[f.name] || f.name),
-      ...liquidacaoFiles.map(f => uploadedFileUrls[f.name] || f.name),
-      ...guiaFiles.map(f => uploadedFileUrls[f.name] || f.name)
-    ];
-
-    const mergedFiles = Array.from(new Set([...persistedFiles, ...allFiles])).filter(Boolean);
-
-    const getSafeArray = (newVal: any[] | null, existingVal: any[] | null) => {
-      return (newVal && newVal.length > 0) ? newVal : (existingVal && existingVal.length > 0 ? existingVal : null);
-    };
-
-    const newRecordData: ReconciliationRecord = {
-      id,
-      orgao: partialData.orgao || orgao,
-      competencia: partialData.competencia || competencia,
-      status: partialData.status || 'EM_ANDAMENTO',
-      comparison_result: partialData.comparison_result || comparisonResult || viewingRecord?.comparison_result || null,
-      nota_tecnica: partialData.nota_tecnica || viewingRecord?.nota_tecnica || notaTecnicaText || null,
-      observacoes: partialData.observacoes || observacoes || viewingRecord?.observacoes || null,
-      rh_relatorio_entries: getSafeArray(partialData.rh_relatorio_entries || (relatorioData?.length > 0 ? relatorioData : null), viewingRecord?.rh_relatorio_entries),
-      retention_entries: getSafeArray(partialData.retention_entries || (retentionData?.length > 0 ? retentionData : null), viewingRecord?.retention_entries),
-      empenho_entries: getSafeArray(partialData.empenho_entries || (empenhoData?.length > 0 ? empenhoData : null), viewingRecord?.empenho_entries),
-      liquidacao_entries: getSafeArray(partialData.liquidacao_entries || (liquidacaoData?.length > 0 ? liquidacaoData : null), viewingRecord?.liquidacao_entries),
-      guia_entries: getSafeArray(partialData.guia_entries || (guiaData?.length > 0 ? guiaData : null), viewingRecord?.guia_entries),
-      created_at: viewingRecord?.created_at || new Date().toISOString(),
-      files: mergedFiles
-    };
-
-    try {
-      setSaveStatus('saving');
-      const { data, error } = await supabase
-        .from('reconciliacoes')
-        .upsert(newRecordData as any)
-        .select()
-        .single();
-
-      if (error) throw error;
-      const savedRecord = data as unknown as ReconciliationRecord;
-      setViewingRecord(savedRecord);
-
-      setHistory(prev => {
-        const index = prev.findIndex(h => h.id === savedRecord.id);
-        if (index >= 0) {
-          const newHistory = [...prev];
-          newHistory[index] = savedRecord;
-          return newHistory;
-        }
-        return [savedRecord, ...prev];
-      });
-
-      if (!viewingRecord || viewingRecord.id === savedRecord.id) {
-        setViewingRecord(savedRecord);
-      }
-      setPersistedFiles(savedRecord.files);
-
-      setSaveStatus('saved');
-      setLastSavedAt(new Date());
-      setTimeout(() => setSaveStatus('idle'), 3000);
-
-      return savedRecord;
-    } catch (err: any) {
-      console.error("Failed to save partial reconciliation", err);
-      setSaveStatus('error');
-      alert(`ERRO AO SALVAR: ${err.message || JSON.stringify(err)}`);
-    }
-  };
-
-  const saveReconciliation = async (result: ComparisonResult, guiaEntries?: RhGuiaData[]) => {
-    await savePartialReconciliation({
-      status: result.finalStatus,
-      comparison_result: result,
-      guia_entries: guiaEntries || guiaData
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve((reader.result as string).split(',')[1]);
+      reader.onerror = error => reject(error);
     });
   };
 
-  const handleManualSave = async () => {
-    if (!orgao || !competencia) return;
-    await savePartialReconciliation({
-      observacoes: observacoes
-    });
-  };
-
-  const handleSaveNotaTecnica = async (nota: string) => {
-    const recordId = viewingRecord?.id || currentReconciliationId || history.find(h => h.comparison_result === comparisonResult)?.id;
-    if (!recordId) {
-      console.error("Não foi possível encontrar o ID do registro para salvar a nota.");
-      return;
-    }
-
-    try {
-      setSaveStatus('saving');
-      const { error } = await supabase
-        .from('reconciliacoes')
-        .update({ nota_tecnica: nota })
-        .eq('id', recordId);
-
-      if (error) throw error;
-
-      // Update local states to reflect the change immediately
-      setNotaTecnicaText(nota);
-      setHistory(prev => prev.map(rec => rec.id === recordId ? { ...rec, nota_tecnica: nota } : rec));
-      if (viewingRecord?.id === recordId) {
-        setViewingRecord(prev => prev ? { ...prev, nota_tecnica: nota } : null);
-      }
-      setSaveStatus('saved');
-      setTimeout(() => setSaveStatus('idle'), 3000);
-
-    } catch (err) {
-      console.error("Failed to save note to Supabase", err);
-      setSaveStatus('error');
-      alert("Erro ao salvar o parecer técnico.");
+  const createBlankData = (type: string) => {
+    switch (type) {
+      case 'Relatorio': return { valorSegurados: 0, valorEmpresa: 0, valorAcidente: 0, deducaoFpas: 0, totalARecolher: 0 };
+      case 'Guia': return { valorSegurados: 0, valorEmpresa: 0, valorRiscoAmbiental: 0, valorContribIndividual: 0, totalGuia: 0 };
+      case 'Retention': return { valorRetido: 0 };
+      case 'Empenho': return { numeroEmpenho: '', valor: 0 };
+      case 'Liquidacao': return { numeroEmpenho: '', valorBruto: 0, salarioFamilia: 0, salarioMaternidade: 0 };
+      default: return {};
     }
   };
 
-  const handleDeleteRecord = async (id: string) => {
-    if (!window.confirm("Tem certeza que deseja excluir permanentemente esta conciliação?")) return;
-
-    try {
-      const { error } = await supabase
-        .from('reconciliacoes')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      setHistory(prev => prev.filter(h => h.id !== id));
-      if (viewingRecord?.id === id) {
-        setViewingRecord(null);
-        setView('history');
-      }
-    } catch (err) {
-      console.error("Failed to delete record", err);
-      alert("Erro ao excluir o registro.");
-    }
-  };
-
-  const handleStartReconciliation = async () => {
-    if (orgao && competencia) {
-      if (!isRectifying) {
-        console.log(`[DEBUG] Starting reconciliation for: "${orgao}" - "${competencia}"`);
-        console.log(`[DEBUG] History length: ${history.length}`);
-        history.forEach(h => console.log(`[DEBUG] History item: "${h.orgao}" - "${h.competencia}" [${h.status}]`));
-
-        // CHECK FOR EXISTING PROGRESS
-        const existingRecord = history.find(h =>
-          h.orgao === orgao &&
-          h.competencia === competencia &&
-          (h.status === 'EM_ANDAMENTO' || h.status === 'DIVERGENTE' || h.status.includes('CONCILIADO'))
-        );
-
-        if (existingRecord) {
-          const confirmResume = window.confirm(
-            `Encontramos uma auditoria em andamento para ${orgao} - ${competencia}.\nDeseja retomar de onde parou?`
-          );
-
-          if (confirmResume) {
-            console.log("Resuming session:", existingRecord.id);
-            setViewingRecord(existingRecord);
-            setCurrentReconciliationId(existingRecord.id);
-
-            // Restore Internal State
-            setRelatorioData(existingRecord.rh_relatorio_entries || []);
-            setRetentionData(existingRecord.retention_entries || []);
-            setEmpenhoData(existingRecord.empenho_entries || []);
-            setLiquidacaoData(existingRecord.liquidacao_entries || []);
-            setGuiaData(existingRecord.guia_entries || []);
-
-            if (existingRecord.observacoes) setObservacoes(existingRecord.observacoes);
-            if (existingRecord.comparison_result) setComparisonResult(existingRecord.comparison_result);
-            if (existingRecord.files) setPersistedFiles(existingRecord.files);
-
-            // Determine appropriate step based on data presence
-            if (existingRecord.comparison_result) {
-              setCurrentStep('COMPARISON');
-            } else if (existingRecord.guia_entries?.length || existingRecord.comparison_result) {
-              setCurrentStep('COMPARISON');
-            } else if (existingRecord.liquidacao_entries?.length) {
-              setCurrentStep('UPLOAD_GUIA');
-            } else if (existingRecord.empenho_entries?.length) {
-              setCurrentStep('UPLOAD_LIQUIDACAO');
-            } else if (existingRecord.retention_entries?.length) {
-              setCurrentStep('UPLOAD_EMPENHO');
-            } else if (existingRecord.rh_relatorio_entries?.length) {
-              setCurrentStep('UPLOAD_RETENTION');
-            } else {
-              setCurrentStep('UPLOAD_RH');
-            }
-
-            setView('process');
-            return;
-          }
-        }
-
-        resetAll(false);
-        const newId = crypto.randomUUID();
-        setCurrentReconciliationId(newId);
-
-        // Proactive save to prevent data loss
-        await savePartialReconciliation({
-          orgao,
-          competencia,
-          status: 'EM_ANDAMENTO',
-          observacoes: observacoes,
-          id: newId
-        });
-      }
-      setCurrentStep('UPLOAD_RH');
-      setView('process');
-    }
-  };
-
-  const createUploadHandler = (
-    setFiles: (files: File[]) => void,
-    setData: (data: any) => void,
-    docType: 'Relatorio' | 'Retention' | 'Empenho' | 'Liquidacao' | 'Guia',
-    docName: string
-  ) => async (files: FileList) => {
-    console.log(`[UPLOAD] Iniciando upload para ${docName}`, { fileCount: files.length, docType });
+  const handleFileUpload = async (files: FileList | File[], type: 'Relatorio' | 'Guia' | 'Retention' | 'Empenho' | 'Liquidacao') => {
+    const fileArray = Array.from(files);
     setIsLoading(true);
     setError(null);
     try {
-      const actualFiles = Array.from(files);
-      console.log(`[UPLOAD] Arquivos recebidos:`, actualFiles.map(f => ({ name: f.name, type: f.type, size: f.size })));
-      setFiles(actualFiles);
-
-      // Store URLs locally to ensure we have them for the save call (state update is async)
-      const newFileUrls: string[] = [];
-
-      // Upload files to Supabase Storage first
-      if (orgao && competencia) {
-        for (const file of actualFiles) {
-          const sanitize = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9.]/gi, '_').toLowerCase();
-          const safeFileName = sanitize(file.name);
-          const path = `${sanitize(orgao)}/${sanitize(competencia)}/${sanitize(docType)}_${Date.now()}_${safeFileName}`;
-          console.log(`[UPLOAD] Enviando arquivo para Storage: ${path}`);
-          const publicUrl = await uploadFile(file, path);
-          if (publicUrl) {
-            console.log(`[UPLOAD] Arquivo salvo: ${publicUrl}`);
-            setUploadedFileUrls(prev => ({ ...prev, [file.name]: publicUrl }));
-            newFileUrls.push(publicUrl);
-          } else {
-            newFileUrls.push(file.name);
-          }
-        }
-      }
-
-      const extractedResults = await Promise.all(actualFiles.map(async (file) => {
-        console.log(`[UPLOAD] Convertendo arquivo para base64: ${file.name}`);
-        const base64Data = await fileToBase64(file);
-        console.log(`[UPLOAD] Base64 gerado, tamanho: ${base64Data.length} caracteres`);
-        console.log(`[UPLOAD] Chamando extractData com tipo: ${docType}, mimeType: ${file.type}`);
-        const result = await extractData(base64Data, file.type, docType as any);
-        console.log(`[UPLOAD] Dados extraídos com sucesso:`, result);
-        return result;
+      const data = await Promise.all(fileArray.map(async f => {
+        const base64 = await fileToBase64(f);
+        return extractData(base64, f.type, type as any);
       }));
 
-      // Pass the list if multiple, or single if one
-      const finalData = extractedResults.length > 1 ? extractedResults : extractedResults[0];
-      console.log(`[UPLOAD] Definindo dados finais:`, finalData);
-      setData(finalData);
-
-      // AUTO-SAVE: Persist immediately
-      const updatePayload: Partial<ReconciliationRecord> = {
-        files: newFileUrls.length > 0 ? newFileUrls : actualFiles.map(f => f.name)
-      };
-
-      // Ensure data is always an array for storage
-      const dataArray = Array.isArray(finalData) ? finalData : [finalData];
-
-      if (docType === 'Relatorio') updatePayload.rh_relatorio_entries = dataArray;
-      if (docType === 'Retention') updatePayload.retention_entries = dataArray;
-      if (docType === 'Empenho') updatePayload.empenho_entries = dataArray;
-      if (docType === 'Liquidacao') updatePayload.liquidacao_entries = dataArray;
-      if (docType === 'Guia') updatePayload.guia_entries = dataArray;
-
-      console.log(`[AUTO-SAVE] Saving upload progress for ${docType}...`);
-      await savePartialReconciliation(updatePayload);
-
+      switch (type) {
+        case 'Relatorio': setRelatorioData(data as any); setRhFiles(fileArray); break;
+        case 'Retention': setRetentionData(data as any); setRetentionFiles(fileArray); break;
+        case 'Empenho': setEmpenhoData(data as any); setEmpenhoFiles(fileArray); break;
+        case 'Liquidacao': setLiquidacaoData(data as any); setLiquidacaoFiles(fileArray); break;
+        case 'Guia': setGuiaData(data as any); setGuiaFiles(fileArray); break;
+      }
     } catch (err: any) {
-      console.error("[UPLOAD] Erro detalhado:", err);
-      console.error("[UPLOAD] Stack trace:", err?.stack);
-      const isQuotaError = err?.message?.includes('Sua cota de uso da API foi excedida');
-      const errorMessage = isQuotaError
-        ? err.message + '\n\nPor favor, preencha os valores manualmente para continuar.'
-        : `Falha ao ler o ${docName}: ${err?.message || "Erro desconhecido"}`;
-      console.error("[UPLOAD] Mensagem de erro para o usuário:", errorMessage);
-      setError(errorMessage);
-      // Removed: setData(createBlankData(docType)); - This was causing silent failures
+      logger.error(`Erro no upload (${type})`, err);
+      setError(err.message);
     } finally {
-      console.log(`[UPLOAD] Finalizando upload, setIsLoading(false)`);
       setIsLoading(false);
     }
   };
 
-  const handleRhUpload = createUploadHandler(setRhFiles, setRelatorioData, 'Relatorio', 'Relatório RH');
-  const handleRetentionUpload = createUploadHandler(setRetentionFiles, setRetentionData, 'Retention', 'Relatório de Retenção');
-  const handleEmpenhoUpload = createUploadHandler(setEmpenhoFiles, setEmpenhoData, 'Empenho', 'Empenho');
-  const handleLiquidacaoUpload = createUploadHandler(setLiquidacaoFiles, setLiquidacaoData, 'Liquidacao', 'Nota de Liquidação');
-  const handleGuiaUpload = createUploadHandler(setGuiaFiles, setGuiaData, 'Guia', 'Guia DARF');
+  const handleConfirmData = async (data: any, files: File[], type: 'Relatorio' | 'Guia' | 'Retention' | 'Empenho' | 'Liquidacao') => {
+    // Atualiza os dados e arquivos (podem ter vindo de edição manual ou novos anexos)
+    switch (type) {
+      case 'Relatorio': setRelatorioData(data); setRhFiles(files); break;
+      case 'Retention': setRetentionData(data); setRetentionFiles(files); break;
+      case 'Empenho': setEmpenhoData(data); setEmpenhoFiles(files); break;
+      case 'Liquidacao': setLiquidacaoData(data); setLiquidacaoFiles(files); break;
+      case 'Guia': setGuiaData(data); setGuiaFiles(files); break;
+    }
 
-  const confirmRhData = (data: RhRelatorioData | RhRelatorioData[], files: File[]) => {
-    const dataArray = Array.isArray(data) ? data : [data];
-    setRelatorioData(dataArray);
-    setRhFiles(files);
-    setCurrentStep('UPLOAD_RETENTION');
-    const stepFiles = files.map(f => uploadedFileUrls[f.name] || f.name);
-    savePartialReconciliation({
-      orgao,
-      competencia,
-      rh_relatorio_entries: dataArray,
-      files: Array.from(new Set([...persistedFiles, ...stepFiles]))
-    });
-  };
+    const nextStepMap: Record<string, Step> = {
+      'UPLOAD_RH': 'UPLOAD_RETENTION',
+      'UPLOAD_RETENTION': 'UPLOAD_EMPENHO',
+      'UPLOAD_EMPENHO': 'UPLOAD_LIQUIDACAO',
+      'UPLOAD_LIQUIDACAO': 'UPLOAD_GUIA',
+      'UPLOAD_GUIA': 'COMPARISON',
+    };
 
-  const confirmRetentionData = (data: RetentionReportData | RetentionReportData[], files: File[]) => {
-    const dataArray = Array.isArray(data) ? data : [data];
-    setRetentionData(dataArray);
-    setRetentionFiles(files);
-    setCurrentStep('UPLOAD_EMPENHO');
-    const stepFiles = files.map(f => uploadedFileUrls[f.name] || f.name);
-    savePartialReconciliation({
-      retention_entries: dataArray,
-      files: Array.from(new Set([...persistedFiles, ...stepFiles]))
-    });
-  };
-
-  const confirmEmpenhoData = (data: EmpenhoData | EmpenhoData[], files: File[]) => {
-    const dataArray = Array.isArray(data) ? data : [data];
-    setEmpenhoData(dataArray);
-    setEmpenhoFiles(files);
-    setCurrentStep('UPLOAD_LIQUIDACAO');
-    const stepFiles = files.map(f => uploadedFileUrls[f.name] || f.name);
-    savePartialReconciliation({
-      empenho_entries: dataArray,
-      files: Array.from(new Set([...persistedFiles, ...stepFiles]))
-    });
-  };
-
-  const confirmLiquidacaoData = (data: LiquidacaoData | LiquidacaoData[], files: File[]) => {
-    const dataArray = Array.isArray(data) ? data : [data];
-    setLiquidacaoData(dataArray);
-    setLiquidacaoFiles(files);
-    setCurrentStep('UPLOAD_GUIA');
-    const stepFiles = files.map(f => uploadedFileUrls[f.name] || f.name);
-    savePartialReconciliation({
-      liquidacao_entries: dataArray,
-      files: Array.from(new Set([...persistedFiles, ...stepFiles]))
-    });
-  };
-
-  const confirmGuiaData = async (data: RhGuiaData | RhGuiaData[], files: File[]) => {
-    const dataArray = Array.isArray(data) ? data : [data];
-    setGuiaData(dataArray);
-    setGuiaFiles(files);
-
-    const aggregateRelatorio = (items: RhRelatorioData[]) => items.reduce((acc, curr) => ({
-      valorSegurados: Number(acc.valorSegurados || 0) + Number(curr.valorSegurados || 0),
-      valorEmpresa: Number(acc.valorEmpresa || 0) + Number(curr.valorEmpresa || 0),
-      valorAcidente: Number(acc.valorAcidente || 0) + Number(curr.valorAcidente || 0),
-      deducaoFpas: Number(acc.deducaoFpas || 0) + Number(curr.deducaoFpas || 0),
-      totalARecolher: Number(acc.totalARecolher || 0) + Number(curr.totalARecolher || 0),
-    }), { valorSegurados: 0, valorEmpresa: 0, valorAcidente: 0, deducaoFpas: 0, totalARecolher: 0 });
-
-    const aggregateRetention = (items: RetentionReportData[]) => items.reduce((acc, curr) => ({
-      valorRetido: Number(acc.valorRetido || 0) + Number(curr.valorRetido || 0),
-      competencia: acc.competencia || curr.competencia,
-      empresa: acc.empresa || curr.empresa,
-    }), { valorRetido: 0, competencia: '', empresa: '' });
-
-    const aggregateEmpenho = (items: EmpenhoData[]) => items.reduce((acc, curr) => ({
-      numeroEmpenho: acc.numeroEmpenho ? `${acc.numeroEmpenho}, ${curr.numeroEmpenho || ''}` : (curr.numeroEmpenho || ''),
-      valor: Number(acc.valor || 0) + Number(curr.valor || 0),
-    }), { numeroEmpenho: '', valor: 0 });
-
-    const aggregateLiquidacao = (items: LiquidacaoData[]) => items.reduce((acc, curr) => ({
-      numeroEmpenho: acc.numeroEmpenho ? `${acc.numeroEmpenho}, ${curr.numeroEmpenho || ''}` : (curr.numeroEmpenho || ''),
-      valorBruto: Number(acc.valorBruto || 0) + Number(curr.valorBruto || 0),
-      salarioFamilia: Number(acc.salarioFamilia || 0) + Number(curr.salarioFamilia || 0),
-      salarioMaternidade: Number(acc.salarioMaternidade || 0) + Number(curr.salarioMaternidade || 0),
-    }), { numeroEmpenho: '', valorBruto: 0, salarioFamilia: 0, salarioMaternidade: 0 });
-
-    const aggregateGuia = (items: RhGuiaData[]) => items.reduce((acc, curr) => ({
-      valorSegurados: Number(acc.valorSegurados || 0) + Number(curr.valorSegurados || 0),
-      valorEmpresa: Number(acc.valorEmpresa || 0) + Number(curr.valorEmpresa || 0),
-      valorRiscoAmbiental: Number(acc.valorRiscoAmbiental || 0) + Number(curr.valorRiscoAmbiental || 0),
-      valorContribIndividual: Number(acc.valorContribIndividual || 0) + Number(curr.valorContribIndividual || 0),
-      totalGuia: Number(acc.totalGuia || 0) + Number(curr.totalGuia || 0),
-    }), { valorSegurados: 0, valorEmpresa: 0, valorRiscoAmbiental: 0, valorContribIndividual: 0, totalGuia: 0 });
-
-    const finalRelatorio = aggregateRelatorio(relatorioData);
-    const finalRetention = aggregateRetention(retentionData);
-    const finalEmpenho = aggregateEmpenho(empenhoData);
-    const finalLiquidacao = aggregateLiquidacao(liquidacaoData);
-    const finalGuia = aggregateGuia(dataArray);
-
-    if (relatorioData.length > 0) {
-      const tolerance = 0.05;
-
-      const internalMatches = {
-        seguradosMatch: Math.abs((finalGuia.valorSegurados + (finalGuia.valorContribIndividual || 0)) - finalRetention.valorRetido) < tolerance,
-        empresaMatch: Math.abs(finalGuia.valorEmpresa - finalRelatorio.valorEmpresa) < tolerance,
-        acidenteMatch: Math.abs(finalGuia.valorRiscoAmbiental - finalRelatorio.valorAcidente) < tolerance,
-        totalMatch: Math.abs(finalGuia.totalGuia - finalRelatorio.totalARecolher) < tolerance
-      };
-
-      const result: ComparisonResult = {
-        relatorioData: finalRelatorio,
-        retentionData: finalRetention, retentionMatch: Math.abs(finalRetention.valorRetido - finalRelatorio.valorSegurados) < tolerance, retentionDifference: finalRetention.valorRetido - finalRelatorio.valorSegurados,
-        empenhoData: finalEmpenho, empenhoMatch: Math.abs(finalEmpenho.valor - finalRetention.valorRetido) < tolerance, empenhoDifference: finalEmpenho.valor - finalRetention.valorRetido,
-        liquidacaoData: finalLiquidacao, liquidacaoBrutoMatch: Math.abs((finalLiquidacao.valorBruto - (finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade)) - (finalRelatorio.valorEmpresa + finalRelatorio.valorAcidente - finalRelatorio.deducaoFpas)) < tolerance, liquidacaoBrutoDifference: (finalLiquidacao.valorBruto - (finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade)) - (finalRelatorio.valorEmpresa + finalRelatorio.valorAcidente - finalRelatorio.deducaoFpas),
-        liquidacaoRetencaoMatch: Math.abs((finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade) - finalRelatorio.deducaoFpas) < tolerance, liquidacaoRetencaoDifference: (finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade) - finalRelatorio.deducaoFpas,
-        deducaoFpas: finalRelatorio.deducaoFpas,
-        segurados: { rh: finalRelatorio.valorSegurados, guia: finalGuia.valorSegurados + (finalGuia.valorContribIndividual || 0), diff: (finalGuia.valorSegurados + (finalGuia.valorContribIndividual || 0)) - finalRelatorio.valorSegurados, status: Math.abs((finalGuia.valorSegurados + (finalGuia.valorContribIndividual || 0)) - finalRelatorio.valorSegurados) < tolerance ? 'MATCH' : 'MISMATCH' },
-        empresa: { rh: finalRelatorio.valorEmpresa - finalRelatorio.deducaoFpas, guia: finalGuia.valorEmpresa, diff: finalGuia.valorEmpresa - (finalRelatorio.valorEmpresa - finalRelatorio.deducaoFpas), status: Math.abs(finalGuia.valorEmpresa - (finalRelatorio.valorEmpresa - finalRelatorio.deducaoFpas)) < tolerance ? 'MATCH' : 'MISMATCH' },
-        acidente: { rh: finalRelatorio.valorAcidente, guia: finalGuia.valorRiscoAmbiental, diff: finalGuia.valorRiscoAmbiental - finalRelatorio.valorAcidente, status: Math.abs(finalGuia.valorRiscoAmbiental - finalRelatorio.valorAcidente) < tolerance ? 'MATCH' : 'MISMATCH' },
-        total: { rh: finalRelatorio.totalARecolher, guia: finalGuia.totalGuia, diff: finalGuia.totalGuia - finalRelatorio.totalARecolher, status: Math.abs(finalGuia.totalGuia - finalRelatorio.totalARecolher) < tolerance ? 'MATCH' : 'MISMATCH' },
-        internalMatches,
-        triangulation: {
-          rh_vs_contab: {
-            segurados: Math.abs(finalRelatorio.valorSegurados - finalRetention.valorRetido) < tolerance,
-            empresa: Math.abs((finalRelatorio.valorEmpresa + finalRelatorio.valorAcidente - finalRelatorio.deducaoFpas) - (finalLiquidacao.valorBruto - (finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade))) < tolerance,
-            total: Math.abs(finalRelatorio.totalARecolher - (finalRetention.valorRetido + (finalLiquidacao.valorBruto - (finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade)))) < tolerance
-          },
-          contab_vs_darf: {
-            segurados: Math.abs(finalRetention.valorRetido - (finalGuia.valorSegurados + (finalGuia.valorContribIndividual || 0))) < tolerance,
-            empresa: Math.abs((finalLiquidacao.valorBruto - (finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade)) - (finalGuia.valorEmpresa + finalGuia.valorRiscoAmbiental)) < tolerance,
-            total: Math.abs(((finalRetention.valorRetido + finalLiquidacao.valorBruto) - (finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade)) - finalGuia.totalGuia) < tolerance
-          }
-        },
-        totalContab: (finalRetention.valorRetido + finalLiquidacao.valorBruto) - (finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade),
-        guiaData: finalGuia,
-        finalStatus: 'DIVERGENTE'
-      };
-
-      const rhMatches = [
-        result.retentionMatch,
-        result.liquidacaoBrutoMatch,
-        result.liquidacaoRetencaoMatch,
-        result.segurados.status === 'MATCH',
-        result.empresa.status === 'MATCH',
-        result.acidente.status === 'MATCH',
-        result.total.status === 'MATCH'
-      ].every(Boolean);
-
-      const accountingGuiaMatches = [
-        internalMatches.seguradosMatch,
-        internalMatches.empresaMatch,
-        internalMatches.acidenteMatch,
-        internalMatches.totalMatch
-      ].every(Boolean);
-
-      if (rhMatches) {
-        result.finalStatus = 'CONCILIADO';
-      } else if (accountingGuiaMatches) {
-        result.finalStatus = 'CONCILIADO_COM_RESSALVA';
+    const nextStep = nextStepMap[currentStep];
+    if (nextStep) {
+      if (nextStep === 'COMPARISON') {
+        const result = performComparison(relatorioData, retentionData, empenhoData, liquidacaoData, guiaData);
+        if (result) {
+          await savePartialReconciliation({ comparison_result: result, status: result.finalStatus });
+        }
       }
-
-      setComparisonResult(result);
-      await saveReconciliation(result, dataArray);
-      setCurrentStep('COMPARISON');
+      setCurrentStep(nextStep);
     }
   };
 
-  const generateNotaTecnicaText = async () => {
-    const dataToUse = viewingRecord ? viewingRecord.comparison_result : comparisonResult;
-    if (!dataToUse) {
-      console.error("Nenhum dado disponível para gerar a nota técnica.");
-      return;
-    }
-
-    console.log("Gerando nota técnica para:", {
-      origem: viewingRecord ? "Histórico" : "Nova Conciliação",
-      id: viewingRecord?.id,
-      tipoData: typeof dataToUse
-    });
-
-    setIsLoadingNotaTecnica(true);
+  const handleGenerateNotaTecnica = async () => {
+    const data = viewingRecord?.comparison_result || comparisonResult;
+    if (!data) return;
+    setIsLoading(true);
     try {
-      const report = await generateNotaTecnica(dataToUse);
-
-      if (!report || report.includes("Não foi possível gerar")) {
-        throw new Error("Resposta inválida da IA");
-      }
-
-      setNotaTecnicaText(report);
-
-      // Tenta salvar a nota gerada se houver um ID ativo
-      if (viewingRecord || currentReconciliationId) {
-        await handleSaveNotaTecnica(report);
-      }
+      const text = await generateNotaTecnica(data);
+      setNotaTecnicaText(text);
+      await savePartialReconciliation({ nota_tecnica: text });
     } catch (err) {
-      console.error("Erro na geração da nota:", err);
-      setNotaTecnicaText("Dificuldade na conexão com a IA. Por favor, tente novamente em instantes.");
+      logger.error('Erro ao gerar nota técnica', err);
     } finally {
-      setIsLoadingNotaTecnica(false);
+      setIsLoading(false);
     }
-  };
-
-  const resetAll = (goToNew = true) => {
-    setRelatorioData([]); setRetentionData([]); setEmpenhoData([]); setLiquidacaoData([]); setGuiaData([]);
-    setRhFiles([]); setRetentionFiles([]); setEmpenhoFiles([]); setLiquidacaoFiles([]); setGuiaFiles([]);
-    setComparisonResult(null); setNotaTecnicaText(null); setError(null); setViewingRecord(null);
-    setCurrentReconciliationId(null);
-    setPersistedFiles([]);
-    setObservacoes('');
-    setIsRectifying(false);
-    if (goToNew) {
-      setView('new');
-      setOrgao('');
-      setCompetencia('');
-    }
-  };
-
-  const handleViewHistory = (recordId: string) => {
-    const record = history.find(h => h.id === recordId);
-    if (record) {
-      setViewingRecord(record);
-      setNotaTecnicaText(record.nota_tecnica);
-      setCurrentStep('COMPARISON');
-      setView('process');
-    }
-  };
-
-  const handleRectify = (record: ReconciliationRecord) => {
-    setOrgao(record.orgao);
-    setCompetencia(record.competencia);
-    setObservacoes(record.observacoes || '');
-    setIsRectifying(true);
-    setCurrentReconciliationId(record.id);
-
-    setRelatorioData(record.rh_relatorio_entries || []);
-    setRetentionData(record.retention_entries || []);
-    setEmpenhoData(record.empenho_entries || []);
-    setLiquidacaoData(record.liquidacao_entries || []);
-    setGuiaData(record.guia_entries || []);
-
-    setRhFiles([]);
-    setRetentionFiles([]);
-    setEmpenhoFiles([]);
-    setLiquidacaoFiles([]);
-    setGuiaFiles([]);
-    setComparisonResult(null);
-    setNotaTecnicaText(null);
-    setError(null);
-    setViewingRecord(null);
-    setPersistedFiles(record.files || []);
-
-    setView('new');
-    setCurrentStep('UPLOAD_RH');
   };
 
   const renderNewScreen = () => (
-    <div className="glass-card p-10 rounded-[2rem] animate-scale-in max-w-4xl mx-auto">
+    <div className="glass-card p-10 rounded-[2rem] animate-scale-in max-w-4xl mx-auto mt-10">
       <div className="flex items-center mb-10">
         <div className="bg-indigo-600/20 p-4 rounded-2xl mr-6 border border-indigo-500/20">
           <PlusCircle className="h-10 w-10 text-indigo-400" />
         </div>
         <div>
-          <h2 className="text-3xl font-extrabold text-white tracking-tight">
-            {isRectifying ? 'Retificar Conciliação' : 'Iniciar Auditoria'}
-          </h2>
+          <h2 className="text-3xl font-extrabold text-white tracking-tight">Iniciar Auditoria</h2>
           <p className="text-slate-400 font-medium">Configure os parâmetros básicos para sua conciliação.</p>
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="space-y-2">
-          <label htmlFor="orgao" className="block text-xs font-bold uppercase tracking-[0.2em] text-indigo-400 font-mono">Entidade / Órgão</label>
-          <select id="orgao" value={orgao} onChange={(e) => setOrgao(e.target.value)} className="bg-slate-800/50 text-slate-100 w-full px-4 py-3 border border-white/5 rounded-xl shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-500/50 appearance-none cursor-pointer transition-all">
+          <label htmlFor="select-orgao" className="block text-xs font-bold uppercase tracking-[0.2em] text-indigo-400 font-mono">Entidade / Órgão</label>
+          <select
+            id="select-orgao"
+            name="orgao"
+            value={orgao}
+            onChange={e => setOrgao(e.target.value)}
+            className="bg-slate-800/50 text-slate-100 w-full px-4 py-3 border border-white/5 rounded-xl transition-all"
+          >
             <option value="">Selecione a entidade...</option>
             {ORGAOS.map(o => <option key={o} value={o} className="bg-slate-900">{o}</option>)}
           </select>
         </div>
         <div className="space-y-2">
-          <label htmlFor="competencia" className="block text-xs font-bold uppercase tracking-[0.1em] text-indigo-400 font-mono">Competência (MM/AAAA)</label>
-          <input type="text" id="competencia" value={competencia} onChange={(e) => setCompetencia(e.target.value)} placeholder="01/2026" className="bg-slate-800/50 text-slate-100 w-full px-4 py-3 border border-white/5 rounded-xl shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all" />
+          <label htmlFor="input-competencia" className="block text-xs font-bold uppercase tracking-[0.1em] text-indigo-400 font-mono">Competência (MM/AAAA)</label>
+          <input
+            id="input-competencia"
+            name="competencia"
+            value={competencia}
+            onChange={e => setCompetencia(e.target.value)}
+            placeholder="01/2026"
+            className="bg-slate-800/50 text-slate-100 w-full px-4 py-3 border border-white/5 rounded-xl transition-all"
+          />
         </div>
       </div>
-
-      <div className="space-y-2 mb-10">
-        <label htmlFor="observacoes" className="block text-xs font-bold uppercase tracking-[0.1em] text-indigo-400 font-mono">Informações Adicionais (Blindadas)</label>
-        <textarea
-          id="observacoes"
-          value={observacoes}
-          onChange={(e) => setObservacoes(e.target.value)}
-          placeholder="Insira detalhes que devem acompanhar este dossiê permanentemente..."
-          rows={3}
-          className="bg-slate-800/50 text-slate-100 w-full px-4 py-3 border border-white/5 rounded-xl shadow-inner focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all resize-none"
-        />
-      </div>
-
       <button
-        onClick={handleStartReconciliation}
-        disabled={!orgao || !competencia || isHistoryLoading}
-        className="w-full relative group overflow-hidden px-8 py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-xl hover:shadow-indigo-500/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+        onClick={() => { setView('process'); setCurrentStep('UPLOAD_RH'); }}
+        disabled={!orgao || !competencia}
+        className="w-full bg-indigo-600 p-4 rounded-2xl mt-10 font-bold text-white shadow-xl hover:shadow-indigo-500/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
       >
-        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-cyan-500 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-        <span className="relative z-10 flex items-center justify-center">
-          {isHistoryLoading ? (
-            <>Sincronizando Banco de Dados... <Loader2 className="h-5 w-5 ml-2 animate-spin" /></>
-          ) : (
-            <>
-              {isRectifying ? 'Confirmar e Continuar' : 'Configurar Processo'} <ArrowLeft className="h-5 w-5 ml-2 rotate-180" />
-            </>
-          )}
-        </span>
+        Configurar Processo de Auditoria
       </button>
     </div>
   );
 
-  const renderHistoryScreen = () => {
-    if (isHistoryLoading) {
-      return (
-        <div className="flex flex-col items-center justify-center p-20 animate-fade-in">
-          <div className="relative">
-            <Loader2 className="h-12 w-12 animate-spin text-indigo-400" />
-            <div className="absolute inset-0 blur-lg bg-indigo-500/20 animate-pulse" />
+  const renderHistoryScreen = () => (
+    <div className="max-w-5xl mx-auto animate-fade-in mt-10">
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center">
+          <div className="bg-slate-800 p-3 rounded-xl mr-4 border border-white/5">
+            <History className="h-6 w-6 text-slate-300" />
           </div>
-          <p className="text-slate-400 font-semibold mt-6 tracking-wide uppercase text-xs">Acessando banco de dados...</p>
+          <h2 className="text-2xl font-bold text-white tracking-tight">Dossiê de Conciliações</h2>
         </div>
-      );
-    }
-
-    if (dbError) {
-      return (
-        <div className="max-w-2xl mx-auto glass-card border-red-500/20 p-6 rounded-2xl animate-scale-in">
-          <div className="flex items-start">
-            <div className="bg-red-500/10 p-3 rounded-xl mr-4">
-              <AlertTriangle className="h-6 w-6 text-red-400" />
-            </div>
-            <div>
-              <p className="text-white font-bold text-lg">Indisponibilidade de Conexão</p>
-              <p className="text-slate-400 text-sm mt-1">{dbError}</p>
-            </div>
-          </div>
+        <div className="bg-indigo-600/10 px-4 py-1.5 rounded-full border border-indigo-500/20">
+          <span className="text-xs font-bold text-indigo-400">{history.length} REGISTROS</span>
         </div>
-      );
-    }
-
-    return (
-      <div className="max-w-5xl mx-auto animate-fade-in">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center">
-            <div className="bg-slate-800 p-3 rounded-xl mr-4 border border-white/5">
-              <History className="h-6 w-6 text-slate-300" />
-            </div>
-            <h2 className="text-2xl font-bold text-white tracking-tight">Dossiê de Conciliações</h2>
-          </div>
-          <div className="bg-indigo-600/10 px-4 py-1.5 rounded-full border border-indigo-500/20">
-            <span className="text-xs font-bold text-indigo-400">{history.length} REGISTROS</span>
-          </div>
+      </div>
+      {isHistoryLoading ? (
+        <div className="flex flex-col items-center justify-center p-20">
+          <Loader2 className="h-12 w-12 animate-spin text-indigo-400" />
+          <p className="text-slate-400 font-semibold mt-6 tracking-wide uppercase text-xs">Sincronizando...</p>
         </div>
-
-        <div className="grid grid-cols-1 gap-4">
-          {history.length > 0 ? history.map(rec => (
-            <div key={rec.id} className="glass-card p-5 rounded-2xl flex items-center justify-between group hover:border-indigo-500/30 transition-all duration-300">
+      ) : (
+        <div className="grid gap-4">
+          {history.map(rec => (
+            <div key={rec.id} className="glass-card p-5 rounded-2xl flex justify-between items-center group hover:border-indigo-500/30 transition-all duration-300">
               <div className="flex items-center space-x-6">
-                <div className={`p-3 rounded-xl ${rec.status === 'CONCILIADO' ? 'bg-emerald-500/10' : 'bg-red-500/10'}`}>
-                  {rec.status === 'CONCILIADO' ? <CheckCircle className="h-6 w-6 text-emerald-400" /> : <AlertTriangle className="h-6 w-6 text-red-400" />}
+                <div className="bg-indigo-500/10 p-3 rounded-xl">
+                  <History className="h-6 w-6 text-indigo-400" />
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-100 group-hover:text-white transition-colors">{rec.orgao}</h3>
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 mt-1 font-medium">
-                    <span className="bg-white/5 px-2 py-0.5 rounded uppercase tracking-wider">REF: {rec.competencia}</span>
-                    <span className="text-[10px] font-mono text-slate-500 bg-white/5 px-2 py-0.5 rounded">
-                      ID: {rec.id.substring(0, 8)}
-                    </span>
-                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full ${rec.status === 'CONCILIADO' ? 'text-emerald-400 bg-emerald-400/10' :
-                      rec.status === 'CONCILIADO_COM_RESSALVA' ? 'text-amber-400 bg-amber-400/10' :
-                        rec.status === 'DIVERGENTE' ? 'text-rose-400 bg-rose-400/10' : 'text-indigo-400 bg-indigo-400/10'
-                      }`}>
-                      {rec.status.replace(/_/g, ' ')}
-                    </span>
-                    <span className="text-[10px] text-slate-400 flex items-center">
-                      <History className="h-3 w-3 mr-1 opacity-50" />
-                      Modificado em: {new Date(rec.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                    </span>
+                  <div className="flex gap-4 mt-1">
+                    <span className="text-xs text-slate-400">REF: {rec.competencia}</span>
+                    <span className="text-[10px] font-bold uppercase text-indigo-400 bg-indigo-400/10 px-2 py-0.5 rounded-full">{rec.status.replace(/_/g, ' ')}</span>
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-6">
-                <button onClick={() => handleViewHistory(rec.id)} className="flex items-center text-xs font-bold uppercase tracking-widest text-indigo-400 hover:text-indigo-300 transition-colors">
-                  Detalhes <Eye className="h-4 w-4 ml-2" />
-                </button>
-                <button onClick={() => handleDeleteRecord(rec.id)} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all" title="Excluir Conciliação">
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
+              <button
+                onClick={() => { setViewingRecord(rec); setView('process'); setCurrentStep('COMPARISON'); }}
+                className="flex items-center text-xs font-bold uppercase tracking-widest text-indigo-400 hover:text-indigo-300 transition-colors"
+              >
+                Detalhes <Eye className="h-4 w-4 ml-2" />
+              </button>
             </div>
-          )) : (
-            <div className="glass-card p-12 rounded-3xl border-dashed border-white/5 text-center">
-              <History className="h-12 w-12 text-slate-600 mx-auto mb-4 opacity-20" />
-              <p className="text-slate-500 font-medium">Nenhum dossiê encontrado no sistema.</p>
-            </div>
-          )}
+          ))}
         </div>
-      </div>
-    );
-  }
+      )}
+    </div>
+  );
 
-  const renderProcessScreen = () => {
-    const steps = [
-      {
-        step: 'UPLOAD_RH',
+  const getActiveStepConfig = () => {
+    const configs: Record<Step, any> = {
+      'UPLOAD_RH': {
         title: '1. Relatório do RH',
         description: "Envie a 'Relação da Contribuição Previdenciária'.",
         manualTitle: "Relação da Contribuição Previdenciária",
         type: 'Relatorio',
-        allowMultiple: true,
         data: relatorioData,
-        files: rhFiles,
-        onFileUpload: handleRhUpload,
-        onConfirm: confirmRhData,
-        onClear: () => { setRelatorioData([]); setRhFiles([]); setError(null); },
-        back: 'new',
-        stepLabel: "1 de 5",
-        section: "RH",
-        availableReportTypes: [{ key: 'Relatorio', label: 'Relação Contrib. Previdenciária' }]
+        files: rhFiles
       },
-      {
-        step: 'UPLOAD_RETENTION',
+      'UPLOAD_RETENTION': {
         title: '2. Retenção de INSS',
-        description: "Envie o relatório de retenção de INSS dos segurados.",
+        description: "Envie o relatório de retenção de INSS.",
         manualTitle: "Relação de Retenção",
         type: 'Retention',
-        allowMultiple: true,
         data: retentionData,
-        files: retentionFiles,
-        onFileUpload: handleRetentionUpload,
-        onConfirm: confirmRetentionData,
-        onClear: () => { setRetentionData([]); setRetentionFiles([]); setError(null); },
-        back: 'UPLOAD_RH',
-        stepLabel: "2 de 5",
-        section: "Contabilidade",
-        expectedValue: (relatorioData && !Array.isArray(relatorioData)) ? { label: "Segurados (RH)", value: relatorioData.valorSegurados, keyToMatch: 'valorRetido' } : undefined,
-        availableReportTypes: [{ key: 'Retention', label: 'Relatório de Retenção' }]
+        files: retentionFiles
       },
-      {
-        step: 'UPLOAD_EMPENHO',
+      'UPLOAD_EMPENHO': {
         title: '3. Empenho Extra-Orçamentário',
-        description: "Envie o empenho para os segurados.",
-        manualTitle: "Empenho Extraorçamentário",
+        description: "Envie a nota de empenho.",
+        manualTitle: "Nota de Empenho",
         type: 'Empenho',
-        allowMultiple: true,
         data: empenhoData,
-        files: empenhoFiles,
-        onFileUpload: handleEmpenhoUpload,
-        onConfirm: confirmEmpenhoData,
-        onClear: () => { setEmpenhoData([]); setEmpenhoFiles([]); setError(null); },
-        back: 'UPLOAD_RETENTION',
-        stepLabel: "3 de 5",
-        section: "Contabilidade",
-        expectedValue: (relatorioData && !Array.isArray(relatorioData)) ? { label: "Alvo Segurados (RH)", value: relatorioData.valorSegurados, keyToMatch: 'valor' } : undefined,
-        availableReportTypes: [{ key: 'Empenho', label: 'Nota de Empenho' }]
+        files: empenhoFiles
       },
-      {
-        step: 'UPLOAD_LIQUIDACAO',
+      'UPLOAD_LIQUIDACAO': {
         title: '4. Nota de Liquidação',
-        description: "Envie a liquidação da parte patronal e deduções.",
+        description: "Envie a nota de liquidação.",
         manualTitle: "Nota de Liquidação",
         type: 'Liquidacao',
-        allowMultiple: true,
         data: liquidacaoData,
-        files: liquidacaoFiles,
-        onFileUpload: handleLiquidacaoUpload,
-        onConfirm: confirmLiquidacaoData,
-        onClear: () => { setLiquidacaoData([]); setLiquidacaoFiles([]); setError(null); },
-        back: 'UPLOAD_EMPENHO',
-        stepLabel: "4 de 5",
-        section: "Contabilidade",
-        expectedValue: (relatorioData && !Array.isArray(relatorioData)) ? { label: "Patronal (RH)", value: relatorioData.valorEmpresa + relatorioData.valorAcidente, keyToMatch: 'valorBruto' } : undefined,
-        availableReportTypes: [{ key: 'Liquidacao', label: 'Nota de Liquidação' }]
+        files: liquidacaoFiles
       },
-      {
-        step: 'UPLOAD_GUIA',
-        title: '5. Guia de Recolhimento (DARF)',
-        description: "Envie o 'Documento de Arrecadação' (DARF).",
+      'UPLOAD_GUIA': {
+        title: '5. Guia DARF',
+        description: "Envie a guia de recolhimento DARF.",
         manualTitle: "DARF Previdenciário",
         type: 'Guia',
-        allowMultiple: true,
         data: guiaData,
-        files: guiaFiles,
-        onFileUpload: handleGuiaUpload,
-        onConfirm: confirmGuiaData,
-        onClear: () => { setGuiaData([]); setGuiaFiles([]); setError(null); },
-        back: 'UPLOAD_LIQUIDACAO',
-        stepLabel: "5 de 5",
-        section: "Contabilidade",
-        expectedValue: (relatorioData && !Array.isArray(relatorioData)) ? { label: "Total a Recolher (RH)", value: relatorioData.totalARecolher, keyToMatch: 'totalGuia' } : undefined,
-        availableReportTypes: [
-          { key: 'Guia', label: 'DARF Previdenciário' },
-          { key: 'GuiaOutros', label: 'Outras Guias' }
-        ]
+        files: guiaFiles
       },
-    ] as const;
-
-    const activeStep = steps.find(s => s.step === currentStep);
-
-    if (activeStep) {
-      return (
-        <div className="animate-in fade-in slide-in-from-right-4 duration-300 max-w-4xl mx-auto">
-          <button
-            onClick={() => activeStep.back === 'new' ? setView('new') : setCurrentStep(activeStep.back as Step)}
-            className="mb-8 flex items-center text-slate-400 hover:text-white transition-colors group"
-          >
-            <div className="bg-white/5 p-2 rounded-lg mr-3 group-hover:bg-white/10 transition-colors">
-              <ArrowLeft className="h-4 w-4" />
-            </div>
-            <span className="text-xs font-bold uppercase tracking-widest">Retornar</span>
-          </button>
-
-          <div className="flex items-center space-x-4 mb-10">
-            <div className="bg-indigo-600/20 px-4 py-1.5 rounded-full border border-indigo-500/30">
-              <span className="text-xs font-black text-indigo-400 uppercase tracking-widest">Etapa {activeStep.stepLabel}</span>
-            </div>
-            <div className="h-px w-8 bg-white/10" />
-            <span className="text-sm font-bold text-slate-300 uppercase tracking-tight">{activeStep.section}</span>
-          </div>
-
-          <StepUpload {...activeStep} isLoading={isLoading} error={error} blankDataFactory={() => createBlankData(activeStep.type)} />
-        </div>
-      );
-    }
-
-    if (currentStep === 'COMPARISON' && (comparisonResult || viewingRecord)) {
-      const finalDataToShow = viewingRecord ? viewingRecord.comparison_result : comparisonResult!;
-      return (
-        <div className="animate-in fade-in slide-in-from-bottom-8 duration-500 max-w-6xl mx-auto">
-          <button
-            onClick={() => { if (viewingRecord) { setViewingRecord(null); setView('history'); } else { setCurrentStep('UPLOAD_GUIA'); } }}
-            className="mb-8 flex items-center text-slate-400 hover:text-white transition-colors group"
-          >
-            <div className="bg-white/5 p-2 rounded-lg mr-3 group-hover:bg-white/10 transition-colors">
-              <ArrowLeft className="h-4 w-4" />
-            </div>
-            <span className="text-xs font-bold uppercase tracking-widest">{viewingRecord ? "Voltar ao Dossiê" : "Retornar ao Upload"}</span>
-          </button>
-          <ComparisonTable
-            finalData={finalDataToShow}
-            onGenerateNotaTecnica={generateNotaTecnicaText}
-            notaTecnicaText={notaTecnicaText}
-            isLoadingNotaTecnica={isLoadingNotaTecnica}
-            onReset={() => resetAll(true)}
-            onRectify={() => handleRectify(viewingRecord!)}
-            isHistoryView={!!viewingRecord}
-            onSaveNotaTecnica={handleSaveNotaTecnica}
-            onNotaChange={setNotaTecnicaText}
-            files={viewingRecord ? viewingRecord.files : [...rhFiles, ...retentionFiles, ...empenhoFiles, ...liquidacaoFiles, ...guiaFiles]}
-          />
-        </div>
-      );
-    }
-
-    return null;
+      'COMPARISON': {}
+    };
+    return configs[currentStep] || configs['UPLOAD_RH'];
   };
 
   return (
     <div className="flex h-screen bg-[#0b0f19] font-sans text-slate-200">
       <Sidebar currentView={view} setView={setView} />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header
-          orgao={view === 'process' ? orgao : undefined}
-          competencia={view === 'process' ? competencia : undefined}
-          observacoes={view === 'process' ? observacoes : undefined}
-          saveStatus={saveStatus}
-          lastSavedAt={lastSavedAt}
-          onManualSave={view === 'process' ? handleManualSave : undefined}
-        />
-        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8 custom-scrollbar">
+        <Header orgao={orgao} competencia={competencia} saveStatus={saveStatus} />
+        <main className="flex-1 overflow-auto p-4 md:p-8 custom-scrollbar">
           {view === 'new' && renderNewScreen()}
           {view === 'history' && renderHistoryScreen()}
-          {view === 'process' && renderProcessScreen()}
+          {view === 'process' && currentStep !== 'COMPARISON' && (
+            <div className="animate-in fade-in slide-in-from-right-4 duration-300 max-w-4xl mx-auto">
+              <button
+                onClick={() => { setView('new'); setCurrentStep('UPLOAD_RH'); }}
+                className="mb-8 flex items-center text-slate-400 hover:text-white transition-colors group"
+              >
+                <div className="bg-white/5 p-2 rounded-lg mr-3 group-hover:bg-white/10">
+                  <ArrowLeft className="h-4 w-4" />
+                </div>
+                <span className="text-xs font-bold uppercase tracking-widest">Reiniciar</span>
+              </button>
+              <StepUpload
+                {...getActiveStepConfig()}
+                isLoading={isLoading}
+                error={error}
+                allowMultiple={true}
+                onFileUpload={(files) => handleFileUpload(files, getActiveStepConfig().type)}
+                onConfirm={(data, files) => handleConfirmData(data, files, getActiveStepConfig().type)}
+                onClear={() => { }}
+                blankDataFactory={() => createBlankData(getActiveStepConfig().type)}
+              />
+            </div>
+          )}
+          {view === 'process' && currentStep === 'COMPARISON' && (
+            <div className="animate-in fade-in slide-in-from-bottom-8 duration-500 max-w-6xl mx-auto">
+              <button
+                onClick={() => { if (viewingRecord) { setViewingRecord(null); setView('history'); } else { setCurrentStep('UPLOAD_GUIA'); } }}
+                className="mb-8 flex items-center text-slate-400 hover:text-white transition-colors group"
+              >
+                <div className="bg-white/5 p-2 rounded-lg mr-3 group-hover:bg-white/10">
+                  <ArrowLeft className="h-4 w-4" />
+                </div>
+                <span className="text-xs font-bold uppercase tracking-widest">
+                  {viewingRecord ? "Voltar ao Dossiê" : "Retornar ao Upload"}
+                </span>
+              </button>
+              <ComparisonTable
+                finalData={viewingRecord?.comparison_result || comparisonResult!}
+                onGenerateNotaTecnica={handleGenerateNotaTecnica}
+                notaTecnicaText={notaTecnicaText}
+                onNotaChange={setNotaTecnicaText}
+                isLoadingNotaTecnica={isLoading}
+                onReset={() => { setView('new'); setViewingRecord(null); setCurrentStep('UPLOAD_RH'); }}
+                isHistoryView={!!viewingRecord}
+                files={viewingRecord?.files || []}
+              />
+            </div>
+          )}
         </main>
       </div>
     </div>

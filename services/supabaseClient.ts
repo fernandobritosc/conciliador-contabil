@@ -1,12 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { ReconciliationRecord } from '../types';
+import { logger } from './logger';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || localStorage.getItem('SUPABASE_URL');
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || localStorage.getItem('SUPABASE_ANON_KEY');
-
-
-// O tipo Database pode ser gerado automaticamente pelo Supabase CLI para uma tipagem forte
-// Por enquanto, usaremos uma definição manual básica.
 export type Json =
   | string
   | number
@@ -52,32 +46,27 @@ export interface Database {
         Relationships: []
       }
     }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      [_ in never]: never
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
+    Views: { [_ in never]: never }
+    Functions: { [_ in never]: never }
+    Enums: { [_ in never]: never }
+    CompositeTypes: { [_ in never]: never }
   }
 }
 
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 let supabaseInstance: SupabaseClient<Database> | null = null;
 
 if (supabaseUrl && supabaseAnonKey) {
   try {
     supabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey);
+    logger.info("Cliente Supabase inicializado com sucesso via variáveis de ambiente.");
   } catch (error) {
-    console.error("Failed to create Supabase client. Clearing invalid credentials from localStorage.", error);
-    localStorage.removeItem('SUPABASE_URL');
-    localStorage.removeItem('SUPABASE_ANON_KEY');
+    logger.error("Erro fatal ao inicializar o cliente Supabase", error);
   }
+} else {
+  logger.warn("Variáveis de ambiente do Supabase não encontradas. O sistema operará em modo offline.");
 }
 
 export const supabase = supabaseInstance;
