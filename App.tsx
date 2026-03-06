@@ -517,9 +517,9 @@ const App: React.FC = () => {
       const tolerance = 0.05;
 
       const internalMatches = {
-        seguradosMatch: Math.abs(finalGuia.valorSegurados - finalRetention.valorRetido) < tolerance,
-        empresaMatch: Math.abs(finalGuia.valorEmpresa - (finalRelatorio.valorEmpresa - finalRelatorio.deducaoFpas)) < tolerance,
-        acidenteMatch: Math.abs(finalGuia.valorRiscoAmbiental - (finalRelatorio.valorAcidente)) < tolerance,
+        seguradosMatch: Math.abs((finalGuia.valorSegurados + (finalGuia.valorContribIndividual || 0)) - finalRetention.valorRetido) < tolerance,
+        empresaMatch: Math.abs(finalGuia.valorEmpresa - finalRelatorio.valorEmpresa) < tolerance,
+        acidenteMatch: Math.abs(finalGuia.valorRiscoAmbiental - finalRelatorio.valorAcidente) < tolerance,
         totalMatch: Math.abs(finalGuia.totalGuia - finalRelatorio.totalARecolher) < tolerance
       };
 
@@ -527,10 +527,10 @@ const App: React.FC = () => {
         relatorioData: finalRelatorio,
         retentionData: finalRetention, retentionMatch: Math.abs(finalRetention.valorRetido - finalRelatorio.valorSegurados) < tolerance, retentionDifference: finalRetention.valorRetido - finalRelatorio.valorSegurados,
         empenhoData: finalEmpenho, empenhoMatch: Math.abs(finalEmpenho.valor - finalRetention.valorRetido) < tolerance, empenhoDifference: finalEmpenho.valor - finalRetention.valorRetido,
-        liquidacaoData: finalLiquidacao, liquidacaoBrutoMatch: Math.abs(finalLiquidacao.valorBruto - (finalRelatorio.valorEmpresa + finalRelatorio.valorAcidente)) < tolerance, liquidacaoBrutoDifference: finalLiquidacao.valorBruto - (finalRelatorio.valorEmpresa + finalRelatorio.valorAcidente),
+        liquidacaoData: finalLiquidacao, liquidacaoBrutoMatch: Math.abs((finalLiquidacao.valorBruto - (finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade)) - (finalRelatorio.valorEmpresa + finalRelatorio.valorAcidente - finalRelatorio.deducaoFpas)) < tolerance, liquidacaoBrutoDifference: (finalLiquidacao.valorBruto - (finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade)) - (finalRelatorio.valorEmpresa + finalRelatorio.valorAcidente - finalRelatorio.deducaoFpas),
         liquidacaoRetencaoMatch: Math.abs((finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade) - finalRelatorio.deducaoFpas) < tolerance, liquidacaoRetencaoDifference: (finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade) - finalRelatorio.deducaoFpas,
         deducaoFpas: finalRelatorio.deducaoFpas,
-        segurados: { rh: finalRelatorio.valorSegurados, guia: finalGuia.valorSegurados, diff: finalGuia.valorSegurados - finalRelatorio.valorSegurados, status: Math.abs(finalGuia.valorSegurados - finalRelatorio.valorSegurados) < tolerance ? 'MATCH' : 'MISMATCH' },
+        segurados: { rh: finalRelatorio.valorSegurados, guia: finalGuia.valorSegurados + (finalGuia.valorContribIndividual || 0), diff: (finalGuia.valorSegurados + (finalGuia.valorContribIndividual || 0)) - finalRelatorio.valorSegurados, status: Math.abs((finalGuia.valorSegurados + (finalGuia.valorContribIndividual || 0)) - finalRelatorio.valorSegurados) < tolerance ? 'MATCH' : 'MISMATCH' },
         empresa: { rh: finalRelatorio.valorEmpresa - finalRelatorio.deducaoFpas, guia: finalGuia.valorEmpresa, diff: finalGuia.valorEmpresa - (finalRelatorio.valorEmpresa - finalRelatorio.deducaoFpas), status: Math.abs(finalGuia.valorEmpresa - (finalRelatorio.valorEmpresa - finalRelatorio.deducaoFpas)) < tolerance ? 'MATCH' : 'MISMATCH' },
         acidente: { rh: finalRelatorio.valorAcidente, guia: finalGuia.valorRiscoAmbiental, diff: finalGuia.valorRiscoAmbiental - finalRelatorio.valorAcidente, status: Math.abs(finalGuia.valorRiscoAmbiental - finalRelatorio.valorAcidente) < tolerance ? 'MATCH' : 'MISMATCH' },
         total: { rh: finalRelatorio.totalARecolher, guia: finalGuia.totalGuia, diff: finalGuia.totalGuia - finalRelatorio.totalARecolher, status: Math.abs(finalGuia.totalGuia - finalRelatorio.totalARecolher) < tolerance ? 'MATCH' : 'MISMATCH' },
@@ -538,16 +538,16 @@ const App: React.FC = () => {
         triangulation: {
           rh_vs_contab: {
             segurados: Math.abs(finalRelatorio.valorSegurados - finalRetention.valorRetido) < tolerance,
-            empresa: Math.abs((finalRelatorio.valorEmpresa - finalRelatorio.deducaoFpas) - (finalLiquidacao.valorBruto - finalLiquidacao.salarioFamilia - finalLiquidacao.salarioMaternidade)) < tolerance,
-            total: Math.abs(finalRelatorio.totalARecolher - (finalRetention.valorRetido + (finalLiquidacao.valorBruto - finalLiquidacao.salarioFamilia - finalLiquidacao.salarioMaternidade))) < tolerance
+            empresa: Math.abs((finalRelatorio.valorEmpresa + finalRelatorio.valorAcidente - finalRelatorio.deducaoFpas) - (finalLiquidacao.valorBruto - (finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade))) < tolerance,
+            total: Math.abs(finalRelatorio.totalARecolher - (finalRetention.valorRetido + (finalLiquidacao.valorBruto - (finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade)))) < tolerance
           },
           contab_vs_darf: {
-            segurados: internalMatches.seguradosMatch,
-            empresa: internalMatches.empresaMatch,
-            total: internalMatches.totalMatch
+            segurados: Math.abs(finalRetention.valorRetido - (finalGuia.valorSegurados + (finalGuia.valorContribIndividual || 0))) < tolerance,
+            empresa: Math.abs((finalLiquidacao.valorBruto - (finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade)) - (finalGuia.valorEmpresa + finalGuia.valorRiscoAmbiental)) < tolerance,
+            total: Math.abs(((finalRetention.valorRetido + finalLiquidacao.valorBruto) - (finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade)) - finalGuia.totalGuia) < tolerance
           }
         },
-        totalContab: (finalRetention.valorRetido + (finalLiquidacao.valorBruto - finalLiquidacao.salarioFamilia - finalLiquidacao.salarioMaternidade)),
+        totalContab: (finalRetention.valorRetido + finalLiquidacao.valorBruto) - (finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade),
         guiaData: finalGuia,
         finalStatus: 'DIVERGENTE'
       };

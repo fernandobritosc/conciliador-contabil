@@ -20,8 +20,8 @@ const getExtractionPrompt = (type: 'Relatorio' | 'Guia' | 'Retention' | 'Empenho
       return `
         Analise a imagem do "Documento de Arrecadação de Receitas Federais" (DARF).
         OBJETIVO: Extrair valores da coluna "Principal".
-        CAMPOS: "Valor Segurados" (Cód 1082), "Valor Empresa" (Cód 1138), "Valor Risco Ambiental" (Cód 1646), "Total da Guia" (Valor Total do Documento).
-        FORMATO JSON: {"valorSegurados": 0.00, "valorEmpresa": 0.00, "valorRiscoAmbiental": 0.00, "totalGuia": 0.00}.
+        CAMPOS: "Valor Segurados" (Cód 1082), "Valor Empresa" (Cód 1138), "Valor Risco Ambiental" (Cód 1646), "Valor Contrib Individual" (Cód 1099), "Total da Guia" (Valor Total do Documento).
+        FORMATO JSON: {"valorSegurados": 0.00, "valorEmpresa": 0.00, "valorRiscoAmbiental": 0.00, "valorContribIndividual": 0.00, "totalGuia": 0.00}.
         REGRAS: Retorne APENAS o JSON. Use ponto (.) como separador decimal. Ignore multas e juros.
       `;
     case 'Empenho':
@@ -68,7 +68,7 @@ export async function extractData(
   if (!apiKey) throw new Error("API Key is required. Please check your environment configuration.");
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
   const prompt = getExtractionPrompt(type);
 
   const imagePart = { inlineData: { mimeType, data: base64Data } };
@@ -112,7 +112,7 @@ export const generateNotaTecnica = async (finalData: ComparisonResult): Promise<
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   if (!apiKey) throw new Error("API Key is required. Please check your environment configuration.");
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const format = (value: number) => value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -123,35 +123,34 @@ export const generateNotaTecnica = async (finalData: ComparisonResult): Promise<
 
   const prompt = `
     Aja como um Auditor Fiscal ou Analista de Contabilidade Pública Sênior.
-    OBJETIVO: Gerar um Parecer Técnico de Conciliação Previdenciária. O texto deve ser SUCINTO e OBJETIVO.
+    OBJETIVO: Gerar uma Nota Técnica de Conciliação Previdenciária formal e estruturada.
 
-    CONTEXTO: Foi realizada a conferência em múltiplas etapas, cruzando dados do RH, Contabilidade (Retenção, Empenho, Liquidação) e a Guia de Recolhimento.
+    ESTRUTURA OBRIGATÓRIA:
+    1. ASSUNTO: Descrição sucinta do objeto da conciliação.
+    2. REFERÊNCIA: Listagem dos documentos analisados (RH, Contabilidade, Guia de Recolhimento).
+    3. ANÁLISE: Detalhamento técnico da conferência, citando valores e eventuais divergências encontradas.
+    4. CONCLUSÃO: Parecer final (Conciliado, Divergente ou Conciliado com Ressalva) e recomendações de ajuste, se houver.
 
-    DADOS DO CRUZAMENTO:
-    
-    1. VALIDAÇÕES INTERNAS (CONTABILIDADE vs RH):
-    ${retentionSection}
-    ${empenhoSection}
-    ${liquidacaoBrutoSection}
-    ${liquidacaoRetencaoSection}
+    DADOS PARA A ANÁLISE:
+    - Validações Contábeis:
+      ${retentionSection}
+      ${empenhoSection}
+      ${liquidacaoBrutoSection}
+      ${liquidacaoRetencaoSection}
 
-    2. CONFERÊNCIA FINAL (RH vs GUIA):
-    - Segurados (Cód 1082): ${finalData.segurados.status} (RH: R$ ${format(finalData.segurados.rh)} vs Guia: R$ ${format(finalData.segurados.guia)}, Diferença: R$ ${format(finalData.segurados.diff)})
-    - Empresa/Patronal (Cód 1138): ${finalData.empresa.status} (RH: R$ ${format(finalData.empresa.rh)} vs Guia: R$ ${format(finalData.empresa.guia)}, Diferença: R$ ${format(finalData.empresa.diff)})
-    - Risco Ambiental/RAT (Cód 1646): ${finalData.acidente.status} (RH: R$ ${format(finalData.acidente.rh)} vs Guia: R$ ${format(finalData.acidente.guia)}, Diferença: R$ ${format(finalData.acidente.diff)})
-    - Total Geral: ${finalData.total.status} (RH: R$ ${format(finalData.total.rh)} vs Guia: R$ ${format(finalData.total.guia)}, Diferença: R$ ${format(finalData.total.diff)})
+    - Comparativo Final (RH vs GUIA):
+      * Segurados: ${finalData.segurados.status} (RH: R$ ${format(finalData.segurados.rh)} vs Guia: R$ ${format(finalData.segurados.guia)})
+      * Patronal: ${finalData.empresa.status} (RH: R$ ${format(finalData.empresa.rh)} vs Guia: R$ ${format(finalData.empresa.guia)})
+      * SAT/RAT: ${finalData.acidente.status} (RH: R$ ${format(finalData.acidente.rh)} vs Guia: R$ ${format(finalData.acidente.guia)})
+      * GERAL: ${finalData.total.status} (RH: R$ ${format(finalData.total.rh)} vs Guia: R$ ${format(finalData.total.guia)})
 
-    RESULTADO FINAL DA CONCILIAÇÃO: ${finalData.finalStatus}
+    RESULTADO FINAL: ${finalData.finalStatus}
 
-    INSTRUÇÕES PARA O PARECER TÉCNICO:
-    - O texto deve ser formal, técnico, direto e gramaticalmente impecável em português do Brasil.
-    - SE o status for 'CONCILIADO_COM_RESSALVA', declare que os valores da Contabilidade e do DARF coincidem, justificando o parecer favorável, mas aponte a divergência com o RH como uma ressalva que precisa de ajuste administrativo.
-    - NÃO utilize NENHUMA formatação markdown (sem '**', '*', '#', etc.). A saída deve ser texto puro estruturado em parágrafos.
-    - EVITE quebras de linha no meio de frases ou cálculos. Cada parágrafo deve ser um bloco de texto contínuo.
-    - Se houver divergências (Status DIVERGENTE), aponte-as de forma clara e objetiva, preferencialmente em uma lista, indicando o ponto da divergência e a ação corretiva necessária. Foque em sanar o problema.
-    - Se estiver CONCILIADO, emita uma nota de conformidade sucinta, declarando que todos os valores (RH, Contabilidade e Guia) foram verificados e estão em total acordo.
-    - Estruture em seções numeradas: "1. OBJETIVO", "2. ANÁLISE TÉCNICA", "3. CONCLUSÃO".
-    - O título principal, "PARECER TÉCNICO DE CONCILIAÇÃO PREVIDENCIÁRIA", não deve ser incluído no corpo da sua resposta, ele será adicionado externamente.
+    REGRAS DE FORMATAÇÃO:
+    - Use linguagem formal e impessoal (terceira pessoa).
+    - NÃO utilize formatação markdown (sem '**', '*', '#').
+    - O texto deve ser estruturado em parágrafos claros.
+    - O título principal e o timbre serão adicionados externamente, comece direto nas seções.
   `;
 
   try {

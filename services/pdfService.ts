@@ -94,11 +94,11 @@ export const generatePdf = async (notaTecnicaText: string, files: (File | string
 
         const tableRows = [
             { label: 'Segurados (Cód. 1082)', rh: finalData.segurados.rh, contab: finalData.retentionData?.valorRetido || 0, darf: finalData.segurados.guia },
-            { label: 'Empresa (Cód. 1138)', rh: finalData.empresa.rh, contab: finalData.liquidacaoData ? (finalData.liquidacaoData.valorBruto - finalData.liquidacaoData.salarioFamilia - finalData.liquidacaoData.salarioMaternidade) : 0, darf: finalData.empresa.guia },
+            { label: 'Empresa (Cód. 1138)', rh: finalData.empresa.rh, contab: finalData.liquidacaoData?.valorBruto || 0, darf: finalData.empresa.guia },
             { label: 'GILRAT / Acidente (Cód. 1646)', rh: finalData.acidente.rh, contab: finalData.acidente.rh, darf: finalData.acidente.guia },
             { label: 'Contrib. Individual (Cód. 1099)', rh: 0, contab: 0, darf: finalData.guiaData?.valorContribIndividual || 0 },
             { label: 'Deduções (FPAS / Sal. Família)', rh: finalData.relatorioData?.deducaoFpas || 0, contab: finalData.liquidacaoData ? (finalData.liquidacaoData.salarioFamilia + finalData.liquidacaoData.salarioMaternidade) : 0, darf: 0 },
-            { label: 'TOTAL GERAL A RECOLHER', rh: finalData.total.rh, contab: finalData.totalContab + (finalData.guiaData?.valorContribIndividual || 0), darf: finalData.total.guia, isBold: true }
+            { label: 'TOTAL GERAL A RECOLHER', rh: finalData.total.rh, contab: finalData.totalContab, darf: finalData.total.guia, isBold: true }
         ];
 
         doc.setFont('helvetica', 'normal');
@@ -153,8 +153,12 @@ export const generatePdf = async (notaTecnicaText: string, files: (File | string
         const text = p.trim();
         if (!text) continue;
 
-        // Detect if it's a heading (all caps or starting with "X. ")
-        const isHeading = /^[0-9]\.|^[A-Z\s]{5,}$/.test(text.substring(0, 20)) || text.includes('OBJETIVO') || text.includes('CONCLUSÃO');
+        // Detect if it's a heading
+        const isHeading = /^[0-9]\./.test(text.substring(0, 5)) ||
+            text.startsWith('ASSUNTO') ||
+            text.startsWith('REFERÊNCIA') ||
+            text.startsWith('ANÁLISE') ||
+            text.startsWith('CONCLUSÃO');
 
         if (isHeading) {
             doc.setFont('times', 'bold');
