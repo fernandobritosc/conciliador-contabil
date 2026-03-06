@@ -2,31 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --primary: 221.2 83.2% 53.3%;
-  --primary-foreground: 210 40% 98%;
-  --accent: 188 100% 50%;
-  --background: 222 47% 11%;
-  --card: 222 47% 13%;
-  --card-foreground: 210 40% 98%;
-  --border: 217 33% 17%;
-  --glass: rgba(15, 23, 42, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.1);
-}
-
 @layer base {
+  html {
+    font-family: 'Inter', sans-serif;
+  }
+
   body {
-    @apply bg-[#0b0f19] text-slate-100;
+    @apply bg-[#0F172A] text-slate-200;
+  }
+
+  code,
+  pre,
+  .font-mono {
+    font-family: 'Fira Code', monospace;
   }
 }
 
 @layer components {
   .glass-card {
-    @apply bg-slate-900/80 backdrop-blur-xl border border-white/10 shadow-2xl;
-  }
-
-  .neon-glow {
-    box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+    @apply bg-slate-900/50 border border-slate-800 transition-colors hover:border-slate-700;
   }
 
   .nav-pill {
@@ -34,8 +28,7 @@
   }
 
   .nav-pill-active {
-    @apply bg-indigo-600/20 text-indigo-400 border border-indigo-500/30;
-    box-shadow: 0 0 10px rgba(79, 70, 229, 0.2);
+    @apply bg-indigo-500/10 text-indigo-400 font-semibold;
   }
 }
 
@@ -98,12 +91,4 @@
 
 ::-webkit-scrollbar-thumb {
   @apply bg-slate-700/50 rounded-full hover:bg-slate-600;
-}
-
-/* Glassmorphism utilities */
-.glass-effect {
-  background: var(--glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
 }

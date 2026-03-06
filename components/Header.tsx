@@ -12,10 +12,10 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ orgao, competencia, observacoes, saveStatus, lastSavedAt, onManualSave }) => {
   return (
-    <header className="glass-effect sticky top-0 z-50 border-b border-white/5 h-20 flex items-center">
+    <header className="bg-[#0F172A] sticky top-0 z-50 border-b border-slate-800 h-20 flex items-center shadow-sm">
       <div className="container mx-auto px-8 flex items-center justify-between">
         <div className="flex flex-col">
-          <h2 className="text-sm font-bold tracking-widest text-indigo-400 uppercase">
+          <h2 className="text-xs font-semibold tracking-widest text-slate-500 uppercase">
             Workstation
           </h2>
           <div className="flex items-center space-x-2">
@@ -29,20 +29,20 @@ export const Header: React.FC<HeaderProps> = ({ orgao, competencia, observacoes,
         {orgao && competencia && (
           <div className="flex items-center space-x-6 animate-fade-in">
             {observacoes && (
-              <div className="hidden lg:flex flex-col items-end max-w-sm border-r border-white/10 pr-6 mr-2">
-                <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1 opacity-70">Informações Blindadas</span>
+              <div className="hidden lg:flex flex-col items-end max-w-sm border-r border-slate-800 pr-6 mr-2">
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-1">Informações Blindadas</span>
                 <p className="text-[11px] font-medium text-slate-300 line-clamp-2 text-right leading-tight italic">
                   "{observacoes}"
                 </p>
               </div>
             )}
-            <div className="h-10 w-px bg-white/10" />
+            <div className="h-10 w-px bg-slate-800" />
             <div className="text-right">
-              <p className="text-sm font-bold text-slate-100 truncate max-w-[250px]" title={orgao}>
+              <p className="text-sm font-bold text-slate-200 truncate max-w-[250px]" title={orgao}>
                 {orgao}
               </p>
-              <div className="flex items-center justify-end space-x-2 text-[11px] text-slate-400 font-semibold uppercase tracking-wider mt-0.5">
-                <Info className="h-3.5 w-3.5 text-indigo-400" />
+              <div className="flex items-center justify-end space-x-2 text-[11px] text-slate-500 font-semibold uppercase tracking-wider mt-0.5">
+                <Info className="h-3.5 w-3.5 text-slate-400" />
                 <span>Competência: {competencia}</span>
               </div>
             </div>

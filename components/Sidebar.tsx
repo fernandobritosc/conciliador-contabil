@@ -18,8 +18,8 @@ const NavLink: React.FC<{
     <button
       onClick={onClick}
       className={`nav-pill flex items-center w-full group ${isActive
-          ? 'nav-pill-active'
-          : 'text-slate-400 hover:text-white hover:bg-white/5'
+        ? 'nav-pill-active'
+        : 'text-slate-400 hover:text-white hover:bg-white/5'
         }`}
     >
       <Icon className={`h-5 w-5 mr-3 transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
@@ -31,16 +31,16 @@ const NavLink: React.FC<{
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentView, setView }) => {
   return (
-    <aside className="w-64 glass-effect border-r border-white/5 text-white flex-col p-6 hidden md:flex transition-all">
+    <aside className="w-64 bg-[#0F172A] border-r border-slate-800 text-slate-200 flex-col p-6 hidden md:flex transition-all">
       <div className="flex items-center space-x-3 mb-12 px-2">
-        <div className="bg-gradient-to-br from-indigo-500 to-cyan-400 p-2.5 rounded-xl neon-glow">
-          <BotMessageSquare className="h-6 w-6 text-white" />
+        <div className="bg-slate-800 p-2.5 rounded-lg border border-slate-700">
+          <BotMessageSquare className="h-6 w-6 text-indigo-400" />
         </div>
         <div>
-          <h1 className="text-xl font-bold tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
+          <h1 className="text-xl font-bold tracking-tighter text-white">
             AUDITOR
           </h1>
-          <p className="text-[10px] uppercase font-bold tracking-[0.2em] text-indigo-400 mt-[-4px]">
+          <p className="text-[10px] uppercase font-bold tracking-[0.2em] text-slate-400 mt-[-4px]">
             IA PROFISSIONAL
           </p>
         </div>
@@ -60,9 +60,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, setView }) => {
         />
       </nav>
 
-      <div className="mt-auto pt-6 border-t border-white/5">
-        <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-600/10 to-transparent border border-indigo-500/10">
-          <p className="text-xs text-indigo-300 font-semibold mb-1">Status do Sistema</p>
+      <div className="mt-auto pt-6 border-t border-slate-800">
+        <div className="p-4 rounded-xl bg-slate-800/50 border border-slate-700/50">
+          <p className="text-xs text-slate-300 font-semibold mb-1">Status do Sistema</p>
           <div className="flex items-center space-x-2">
             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
             <span className="text-[10px] text-slate-400 font-medium">IA ONLINE</span>

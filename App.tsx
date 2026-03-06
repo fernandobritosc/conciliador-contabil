@@ -130,6 +130,16 @@ const App: React.FC = () => {
     }
   };
 
+  const handleClearStep = (type: 'Relatorio' | 'Guia' | 'Retention' | 'Empenho' | 'Liquidacao') => {
+    switch (type) {
+      case 'Relatorio': setRelatorioData(null); setRhFiles([]); break;
+      case 'Retention': setRetentionData(null); setRetentionFiles([]); break;
+      case 'Empenho': setEmpenhoData(null); setEmpenhoFiles([]); break;
+      case 'Liquidacao': setLiquidacaoData(null); setLiquidacaoFiles([]); break;
+      case 'Guia': setGuiaData(null); setGuiaFiles([]); break;
+    }
+  };
+
   const handleGenerateNotaTecnica = async () => {
     const data = viewingRecord?.comparison_result || comparisonResult;
     if (!data) return;
@@ -146,46 +156,46 @@ const App: React.FC = () => {
   };
 
   const renderNewScreen = () => (
-    <div className="glass-card p-10 rounded-[2rem] animate-scale-in max-w-4xl mx-auto mt-10">
+    <div className="bg-slate-900/50 border border-slate-800 p-10 rounded-xl animate-scale-in max-w-4xl mx-auto mt-10">
       <div className="flex items-center mb-10">
-        <div className="bg-indigo-600/20 p-4 rounded-2xl mr-6 border border-indigo-500/20">
+        <div className="bg-slate-800 p-4 rounded-lg mr-6 border border-slate-700">
           <PlusCircle className="h-10 w-10 text-indigo-400" />
         </div>
         <div>
-          <h2 className="text-3xl font-extrabold text-white tracking-tight">Iniciar Auditoria</h2>
+          <h2 className="text-3xl font-bold text-white tracking-tight">Iniciar Auditoria</h2>
           <p className="text-slate-400 font-medium">Configure os parâmetros básicos para sua conciliação.</p>
         </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="space-y-2">
-          <label htmlFor="select-orgao" className="block text-xs font-bold uppercase tracking-[0.2em] text-indigo-400 font-mono">Entidade / Órgão</label>
+          <label htmlFor="select-orgao" className="block text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 font-mono">Entidade / Órgão</label>
           <select
             id="select-orgao"
             name="orgao"
             value={orgao}
             onChange={e => setOrgao(e.target.value)}
-            className="bg-slate-800/50 text-slate-100 w-full px-4 py-3 border border-white/5 rounded-xl transition-all"
+            className="bg-slate-800 text-slate-200 w-full px-4 py-3 border border-slate-700 rounded-lg focus:border-indigo-500 transition-colors"
           >
             <option value="">Selecione a entidade...</option>
             {ORGAOS.map(o => <option key={o} value={o} className="bg-slate-900">{o}</option>)}
           </select>
         </div>
         <div className="space-y-2">
-          <label htmlFor="input-competencia" className="block text-xs font-bold uppercase tracking-[0.1em] text-indigo-400 font-mono">Competência (MM/AAAA)</label>
+          <label htmlFor="input-competencia" className="block text-xs font-semibold uppercase tracking-[0.1em] text-slate-400 font-mono">Competência (MM/AAAA)</label>
           <input
             id="input-competencia"
             name="competencia"
             value={competencia}
             onChange={e => setCompetencia(e.target.value)}
             placeholder="01/2026"
-            className="bg-slate-800/50 text-slate-100 w-full px-4 py-3 border border-white/5 rounded-xl transition-all"
+            className="bg-slate-800 text-slate-200 w-full px-4 py-3 border border-slate-700 rounded-lg focus:border-indigo-500 transition-colors"
           />
         </div>
       </div>
       <button
         onClick={() => { setView('process'); setCurrentStep('UPLOAD_RH'); }}
         disabled={!orgao || !competencia}
-        className="w-full bg-indigo-600 p-4 rounded-2xl mt-10 font-bold text-white shadow-xl hover:shadow-indigo-500/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+        className="w-full bg-indigo-600 p-4 rounded-lg mt-10 font-semibold text-white hover:bg-indigo-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
       >
         Configurar Processo de Auditoria
       </button>
@@ -196,13 +206,13 @@ const App: React.FC = () => {
     <div className="max-w-5xl mx-auto animate-fade-in mt-10">
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center">
-          <div className="bg-slate-800 p-3 rounded-xl mr-4 border border-white/5">
+          <div className="bg-slate-800 p-3 rounded-lg mr-4 border border-slate-700">
             <History className="h-6 w-6 text-slate-300" />
           </div>
           <h2 className="text-2xl font-bold text-white tracking-tight">Dossiê de Conciliações</h2>
         </div>
-        <div className="bg-indigo-600/10 px-4 py-1.5 rounded-full border border-indigo-500/20">
-          <span className="text-xs font-bold text-indigo-400">{history.length} REGISTROS</span>
+        <div className="bg-indigo-500/10 px-4 py-1.5 rounded-lg border border-indigo-500/20">
+          <span className="text-xs font-semibold text-indigo-400">{history.length} REGISTROS</span>
         </div>
       </div>
       {isHistoryLoading ? (
@@ -211,24 +221,24 @@ const App: React.FC = () => {
           <p className="text-slate-400 font-semibold mt-6 tracking-wide uppercase text-xs">Sincronizando...</p>
         </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-3">
           {history.map(rec => (
-            <div key={rec.id} className="glass-card p-5 rounded-2xl flex justify-between items-center group hover:border-indigo-500/30 transition-all duration-300">
+            <div key={rec.id} className="bg-slate-900 border border-slate-800 p-5 rounded-xl flex justify-between items-center group transition-colors hover:border-slate-700">
               <div className="flex items-center space-x-6">
-                <div className="bg-indigo-500/10 p-3 rounded-xl">
+                <div className="bg-slate-800 p-3 rounded-lg border border-slate-700">
                   <History className="h-6 w-6 text-indigo-400" />
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-100 group-hover:text-white transition-colors">{rec.orgao}</h3>
                   <div className="flex gap-4 mt-1">
-                    <span className="text-xs text-slate-400">REF: {rec.competencia}</span>
-                    <span className="text-[10px] font-bold uppercase text-indigo-400 bg-indigo-400/10 px-2 py-0.5 rounded-full">{rec.status.replace(/_/g, ' ')}</span>
+                    <span className="text-xs text-slate-500 font-mono">REF: {rec.competencia}</span>
+                    <span className="text-[10px] font-bold uppercase text-indigo-400 bg-indigo-500/5 px-2 py-0.5 rounded border border-indigo-500/20">{rec.status.replace(/_/g, ' ')}</span>
                   </div>
                 </div>
               </div>
               <button
                 onClick={() => { setViewingRecord(rec); setView('process'); setCurrentStep('COMPARISON'); }}
-                className="flex items-center text-xs font-bold uppercase tracking-widest text-indigo-400 hover:text-indigo-300 transition-colors"
+                className="flex items-center text-xs font-semibold uppercase tracking-widest text-indigo-400 hover:text-indigo-300 transition-colors"
               >
                 Detalhes <Eye className="h-4 w-4 ml-2" />
               </button>
@@ -287,7 +297,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-[#0b0f19] font-sans text-slate-200">
+    <div className="flex h-screen bg-[#0F172A] font-sans text-slate-200">
       <Sidebar currentView={view} setView={setView} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header orgao={orgao} competencia={competencia} saveStatus={saveStatus} />
@@ -312,7 +322,7 @@ const App: React.FC = () => {
                 allowMultiple={true}
                 onFileUpload={(files) => handleFileUpload(files, getActiveStepConfig().type)}
                 onConfirm={(data, files) => handleConfirmData(data, files, getActiveStepConfig().type)}
-                onClear={() => { }}
+                onClear={() => handleClearStep(getActiveStepConfig().type)}
                 blankDataFactory={() => createBlankData(getActiveStepConfig().type)}
               />
             </div>

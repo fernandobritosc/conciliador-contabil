@@ -140,6 +140,14 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
 
     const removeEntry = (id: number) => setManualEntries(prev => prev.filter(entry => entry.id !== id));
 
+    const handleClear = () => {
+        setMode('choice');
+        setManualEntries([]);
+        setEditableData(null);
+        setFormValues({});
+        onClear();
+    };
+
     const handleConfirm = () => {
         const dataToReturn = manualEntries.map(entry => {
             const entryData = blankDataFactory();
@@ -212,34 +220,34 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
                 <button
                     onClick={handleIAMode}
-                    className="group relative glass-card p-10 rounded-3xl border-white/5 hover:border-indigo-500/50 hover:shadow-indigo-500/10 transition-all duration-500 overflow-hidden text-left"
+                    className="group relative bg-[#1E293B]/50 p-10 rounded-xl border border-slate-800 hover:border-indigo-500/50 transition-all duration-300 overflow-hidden text-left"
                 >
                     <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-20 transition-opacity">
                         <ScanLine className="h-24 w-24 text-indigo-400" />
                     </div>
-                    <div className="bg-indigo-600/20 p-4 rounded-2xl w-fit mb-6 border border-indigo-500/20 group-hover:scale-110 transition-transform">
+                    <div className="bg-slate-800 p-4 rounded-lg w-fit mb-6 border border-slate-700">
                         <ScanLine className="h-10 w-10 text-indigo-400" />
                     </div>
-                    <h3 className="font-black text-xl text-white mb-3">Extração por Inteligência Artificial</h3>
+                    <h3 className="font-bold text-xl text-white mb-3 tracking-tight">Extração por Inteligência Artificial</h3>
                     <p className="text-sm text-slate-400 leading-relaxed mb-8">Processamento neural e OCR avançado. Basta enviar o PDF para conferência automática.</p>
-                    <div className="flex items-center text-xs font-bold text-indigo-400 uppercase tracking-widest">
+                    <div className="flex items-center text-xs font-semibold text-indigo-400 uppercase tracking-widest">
                         Ativar Scanner <ArrowLeft className="h-4 w-4 ml-2 rotate-180" />
                     </div>
                 </button>
 
                 <button
                     onClick={handleManualMode}
-                    className="group relative glass-card p-10 rounded-3xl border-white/5 hover:border-emerald-500/50 hover:shadow-emerald-500/10 transition-all duration-500 overflow-hidden text-left"
+                    className="group relative bg-[#1E293B]/50 p-10 rounded-xl border border-slate-800 hover:border-emerald-500/50 transition-all duration-300 overflow-hidden text-left"
                 >
                     <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-20 transition-opacity">
                         <Edit2 className="h-24 w-24 text-emerald-400" />
                     </div>
-                    <div className="bg-emerald-600/20 p-4 rounded-2xl w-fit mb-6 border border-emerald-500/20 group-hover:scale-110 transition-transform">
+                    <div className="bg-slate-800 p-4 rounded-lg w-fit mb-6 border border-slate-700">
                         <Edit2 className="h-10 w-10 text-emerald-400" />
                     </div>
-                    <h3 className="font-black text-xl text-white mb-3">Inclusão de Dados Manual</h3>
+                    <h3 className="font-bold text-xl text-white mb-3 tracking-tight">Inclusão de Dados Manual</h3>
                     <p className="text-sm text-slate-400 leading-relaxed mb-8">Controle total sobre o lançamento. Ideal para correções pontuais ou guias avulsas.</p>
-                    <div className="flex items-center text-xs font-bold text-emerald-400 uppercase tracking-widest">
+                    <div className="flex items-center text-xs font-semibold text-emerald-400 uppercase tracking-widest">
                         Lançamento Direto <ArrowLeft className="h-4 w-4 ml-2 rotate-180" />
                     </div>
                 </button>
@@ -257,22 +265,20 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
             <div
                 onDragOver={e => e.preventDefault()}
                 onDrop={e => { e.preventDefault(); onFileUpload(e.dataTransfer.files); }}
-                className="w-full group relative glass-card rounded-[3rem] p-4 cursor-pointer hover:border-indigo-500/30 transition-all duration-700"
+                className="w-full group relative bg-slate-900 rounded-xl p-4 cursor-pointer border border-slate-800 hover:border-indigo-500/30 transition-all duration-300"
             >
-                <div className="border-2 border-dashed border-white/5 rounded-[2.5rem] p-16 flex flex-col items-center group-hover:bg-indigo-500/[0.03] transition-colors">
-                    <div className="relative mb-10">
-                        <div className="absolute inset-0 bg-indigo-500/20 blur-2xl rounded-full scale-150 group-hover:scale-[2] transition-transform duration-700" />
-                        <div className="relative bg-gradient-to-br from-indigo-500 to-cyan-400 p-6 rounded-3xl shadow-2xl group-hover:rotate-6 transition-transform">
-                            <Upload className="h-10 w-10 text-white" />
+                <div className="border-2 border-dashed border-slate-800 rounded-lg p-16 flex flex-col items-center group-hover:bg-indigo-500/[0.02] transition-colors">
+                    <div className="relative mb-8">
+                        <div className="relative bg-slate-800 p-6 rounded-xl border border-slate-700">
+                            <Upload className="h-10 w-10 text-indigo-400" />
                         </div>
                     </div>
 
-                    <h3 className="text-2xl font-bold text-white mb-2 tracking-tight group-hover:text-indigo-300 transition-colors">Arraste seu documento aqui</h3>
-                    <p className="text-slate-400 font-medium mb-10">Suporta PDF e imagens de alta resolução.</p>
+                    <h3 className="text-2xl font-bold text-white mb-2 tracking-tight">Arraste seu documento aqui</h3>
+                    <p className="text-slate-500 font-medium mb-10 text-sm italic">Suporta PDF e imagens de alta resolução.</p>
 
-                    <label className="relative overflow-hidden px-10 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl hover:shadow-indigo-500/20 transition-all cursor-pointer group-active:scale-95">
-                        <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-cyan-500 opacity-0 hover:opacity-100 transition-opacity" />
-                        <span className="relative z-10 flex items-center tracking-tighter text-lg uppercase">
+                    <label className="relative overflow-hidden px-10 py-4 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-500 transition-all cursor-pointer">
+                        <span className="relative z-10 flex items-center tracking-tight text-base uppercase">
                             Procurar Arquivo <Paperclip className="h-5 w-5 ml-2" />
                         </span>
                         <input type="file" className="hidden" accept=".pdf,image/*" multiple={allowMultiple} onChange={(e) => e.target.files && onFileUpload(e.target.files)} />
@@ -308,7 +314,7 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
 
                 <div className="flex gap-4 pt-6 border-t border-white/10">
                     <button
-                        onClick={onClear}
+                        onClick={handleClear}
                         className="flex-1 px-6 py-3 bg-indigo-600 text-white font-black rounded-xl shadow-xl hover:bg-indigo-700 transition-all uppercase tracking-wider text-sm"
                     >
                         Tentar Novamente
@@ -326,7 +332,7 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
 
     return (
         <div className="w-full max-w-4xl mx-auto">
-            <div className="glass-card rounded-[2.5rem] overflow-hidden border-white/10 shadow-2xl">
+            <div className="bg-[#0F172A] border border-slate-800 rounded-xl overflow-hidden shadow-sm">
                 <div className="bg-white/5 p-6 border-b border-white/10 flex justify-between items-center sm:px-10">
                     <div className="flex items-center space-x-3">
                         <div className="bg-indigo-600/20 p-2 rounded-xl border border-indigo-500/20">
@@ -342,7 +348,7 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
                                 <span className="text-emerald-400 font-black text-sm uppercase tracking-widest">{section}</span>
                             </div>
                         )}
-                        <button onClick={onClear} className="text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-300 transition-colors flex items-center">
+                        <button onClick={handleClear} className="text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-300 transition-colors flex items-center">
                             <Trash2 className="h-3 w-3 mr-2" /> Limpar Etapa
                         </button>
                     </div>
@@ -575,11 +581,10 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
                         <button
                             onClick={handleConfirm}
                             disabled={(mode === 'manual' && manualEntries.length === 0) || (mode === 'ia' && !data)}
-                            className="group relative overflow-hidden flex items-center justify-center px-12 py-5 bg-emerald-600 text-white font-black rounded-[1.5rem] shadow-2xl hover:shadow-emerald-500/20 transition-all text-lg w-full md:w-auto disabled:opacity-20 uppercase tracking-tighter"
+                            className="flex items-center justify-center px-12 py-5 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-500 transition-colors text-base w-full md:w-auto disabled:opacity-20 uppercase tracking-wider"
                         >
-                            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-teal-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                             <span className="relative z-10 flex items-center">
-                                <Check className="h-6 w-6 mr-3" /> Confirmar Auditoria
+                                <Check className="h-5 w-5 mr-3" /> Confirmar Auditoria
                             </span>
                         </button>
                     </div>

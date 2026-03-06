@@ -95,17 +95,17 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
                 {[
                     { label: 'Segurados vs Retenção', valA: finalData.segurados.rh, valB: finalData.retentionData?.valorRetido || 0, match: finalData.retentionMatch, linkA: finalData.triangulation?.rh_vs_contab.segurados, linkB: finalData.triangulation?.contab_vs_darf.segurados, desc: 'RH vs Retenção Contábil' },
                     { label: 'Retenção vs Empenho', valA: finalData.retentionData?.valorRetido || 0, valB: finalData.empenhoData?.valor || 0, match: finalData.empenhoMatch, linkA: true, linkB: true, desc: 'Retenção vs Empenho' },
-                    { label: 'Patronal (RH vs Liquidação)', valA: (finalData.empresa.rh + finalData.acidente.rh), valB: finalData.liquidacaoData?.valorBruto || 0, match: finalData.liquidacaoBrutoMatch, linkA: finalData.triangulation?.rh_vs_contab.empresa, linkB: true, desc: 'RH vs Liquidação Bruta' },
+                    { label: 'Patronal (RH vs Liquidação)', valA: finalData.empresa.rh + finalData.acidente.rh, valB: (finalData.liquidacaoData?.valorBruto || 0) - (finalData.liquidacaoData?.salarioFamilia || 0) - (finalData.liquidacaoData?.salarioMaternidade || 0), match: finalData.liquidacaoBrutoMatch, linkA: finalData.triangulation?.rh_vs_contab.empresa, linkB: true, desc: 'RH vs Liquidação Líquida' },
                     { label: 'RH vs Guia (Segurados)', valA: finalData.segurados.rh, valB: finalData.segurados.guia, match: finalData.segurados.status === 'MATCH', linkA: finalData.triangulation?.rh_vs_contab.segurados, linkB: finalData.triangulation?.contab_vs_darf.segurados, desc: 'RH vs DARF 1082', labelB: 'GUIA' },
                     { label: 'RH vs Guia (Patronal)', valA: finalData.empresa.rh, valB: finalData.empresa.guia, match: finalData.empresa.status === 'MATCH', linkA: finalData.triangulation?.rh_vs_contab.empresa, linkB: finalData.triangulation?.contab_vs_darf.empresa, desc: 'RH vs DARF 1138', labelB: 'GUIA' },
                     { label: 'RH vs Guia (Total)', valA: finalData.total.rh, valB: finalData.total.guia, match: finalData.total.status === 'MATCH', linkA: finalData.triangulation?.rh_vs_contab.total, linkB: finalData.triangulation?.contab_vs_darf.total, desc: 'Cruzamento Final', labelB: 'GUIA' },
                 ].map((item: any, idx) => {
                     const isRessalva = !item.match && item.linkB;
                     return (
-                        <div key={idx} className={`glass-card p-5 rounded-2xl border transition-all duration-300 flex flex-col justify-between ${item.match ? 'border-white/5 bg-white/[0.01]' : isRessalva ? 'border-cyan-500/30 bg-cyan-500/10 shadow-lg shadow-cyan-500/5' : 'border-red-500/20 bg-red-500/10 shadow-lg shadow-red-500/5'}`}>
+                        <div key={idx} className={`p-5 rounded-xl border transition-all duration-200 flex flex-col justify-between ${item.match ? 'bg-[#0F172A] border-slate-800' : isRessalva ? 'bg-amber-950/20 border-amber-900/50' : 'bg-red-950/20 border-red-900/50'}`}>
                             <div className="flex items-start justify-between mb-4">
                                 <div className="flex items-start gap-3">
-                                    <div className={`w-fit p-2 rounded-lg border ${item.match ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : isRessalva ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+                                    <div className={`w-fit p-2 rounded-md ${item.match ? 'bg-emerald-500/10 text-emerald-500' : isRessalva ? 'bg-amber-500/10 text-amber-500' : 'bg-red-500/10 text-red-500'}`}>
                                         {item.match ? <CheckCircle className="h-5 w-5" /> : isRessalva ? <AlertCircle className="h-5 w-5" /> : <XCircle className="h-5 w-5" />}
                                     </div>
                                     <div className="flex flex-col">
@@ -143,16 +143,16 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
                     );
                 })}
 
-                <div className={`sm:col-span-2 lg:col-span-3 glass-card p-6 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-6 border-2 transition-all duration-700 ${finalData.finalStatus === 'CONCILIADO' ? 'bg-emerald-600/10 border-emerald-500/30' :
-                    finalData.finalStatus === 'CONCILIADO_COM_RESSALVA' ? 'bg-cyan-600/10 border-cyan-500/30' :
-                        'bg-red-600/10 border-red-500/30'}`}>
+                <div className={`sm:col-span-2 lg:col-span-3 p-6 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-6 border transition-colors duration-200 ${finalData.finalStatus === 'CONCILIADO' ? 'bg-emerald-950/20 border-emerald-900/50' :
+                    finalData.finalStatus === 'CONCILIADO_COM_RESSALVA' ? 'bg-amber-950/20 border-amber-900/50' :
+                        'bg-red-950/20 border-red-900/50'}`}>
                     <div className="flex items-center">
-                        <div className={`p-4 rounded-2xl mr-5 shadow-lg ${finalData.finalStatus === 'CONCILIADO' ? 'bg-emerald-600 shadow-emerald-600/20' :
-                            finalData.finalStatus === 'CONCILIADO_COM_RESSALVA' ? 'bg-cyan-600 shadow-cyan-600/20' :
-                                'bg-red-600 shadow-red-600/20'}`}>
-                            {finalData.finalStatus === 'CONCILIADO' ? <CheckCircle className="h-7 w-7 text-white" /> :
-                                finalData.finalStatus === 'CONCILIADO_COM_RESSALVA' ? <AlertCircle className="h-7 w-7 text-white" /> :
-                                    <XCircle className="h-7 w-7 text-white" />}
+                        <div className={`p-4 rounded-xl mr-5 ${finalData.finalStatus === 'CONCILIADO' ? 'bg-emerald-500/10 text-emerald-400' :
+                            finalData.finalStatus === 'CONCILIADO_COM_RESSALVA' ? 'bg-amber-500/10 text-amber-400' :
+                                'bg-red-500/10 text-red-500'}`}>
+                            {finalData.finalStatus === 'CONCILIADO' ? <CheckCircle className="h-7 w-7" /> :
+                                finalData.finalStatus === 'CONCILIADO_COM_RESSALVA' ? <AlertCircle className="h-7 w-7" /> :
+                                    <XCircle className="h-7 w-7" />}
                         </div>
                         <div>
                             <p className={`text-[10px] font-black uppercase tracking-[0.3em] mb-1 ${finalData.finalStatus === 'CONCILIADO' ? 'text-emerald-400' :
@@ -185,24 +185,21 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
                 <button
                     onClick={onGenerateNotaTecnica}
                     disabled={isLoadingNotaTecnica}
-                    className="flex-1 max-w-xs group relative overflow-hidden flex items-center justify-center px-8 py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-xl hover:shadow-indigo-500/30 transition-all disabled:opacity-50"
+                    className="flex-1 max-w-xs flex items-center justify-center px-8 py-4 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-500 transition-colors disabled:opacity-50 border border-indigo-500"
                 >
-                    <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-cyan-500 opacity-0 group-hover:opacity-100 transition-all duration-300" />
-                    <span className="relative z-10 flex items-center">
-                        {isLoadingNotaTecnica ? <><Loader2 className="h-5 w-5 mr-3 animate-spin" />AGUARDE...</> : <><FileText className="h-5 w-5 mr-3" />Gerar Parecer IA</>}
-                    </span>
+                    {isLoadingNotaTecnica ? <><Loader2 className="h-5 w-5 mr-3 animate-spin" />Processando...</> : <><FileText className="h-5 w-5 mr-3" />Gerar Parecer IA</>}
                 </button>
                 {isHistoryView ? (
                     <button
                         onClick={onRectify}
-                        className="flex-1 max-w-xs flex items-center justify-center px-8 py-4 bg-slate-800 text-slate-200 font-bold rounded-2xl border border-white/10 hover:bg-slate-700 transition-all"
+                        className="flex-1 max-w-xs flex items-center justify-center px-8 py-4 bg-slate-800 text-slate-200 font-semibold rounded-xl border border-slate-700 hover:bg-slate-700 transition-colors"
                     >
                         <Edit2 className="h-5 w-5 mr-3" />Retificar Dossiê
                     </button>
                 ) : (
                     <button
                         onClick={onReset}
-                        className="flex-1 max-w-xs flex items-center justify-center px-8 py-4 bg-slate-800 text-slate-200 font-bold rounded-2xl border border-white/10 hover:bg-slate-700 transition-all"
+                        className="flex-1 max-w-xs flex items-center justify-center px-8 py-4 bg-slate-800 text-slate-200 font-semibold rounded-xl border border-slate-700 hover:bg-slate-700 transition-colors"
                     >
                         Nova Auditoria
                     </button>
@@ -257,7 +254,7 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
                 )}
             </div>
 
-            <div className="glass-card p-10 rounded-[2.5rem] border-white/10 animate-slide-up">
+            <div className="glass-card p-8 rounded-xl animate-slide-up">
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-8">
                     <div className="flex items-center space-x-3">
                         <div className="bg-slate-800 p-2.5 rounded-xl border border-white/5 text-indigo-400">
@@ -288,7 +285,7 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
                     <button
                         onClick={handleGeneratePdf}
                         disabled={isGeneratingPdf || !editableNotaTecnica}
-                        className="w-full sm:w-auto flex items-center justify-center px-10 py-5 bg-slate-100 text-slate-900 font-black rounded-2xl shadow-2xl hover:bg-white hover:scale-[1.02] transition-all disabled:opacity-50 text-base uppercase tracking-tighter"
+                        className="w-full sm:w-auto flex items-center justify-center px-10 py-4 bg-slate-200 text-slate-900 font-semibold rounded-xl hover:bg-white transition-colors disabled:opacity-50 text-sm uppercase tracking-wider"
                     >
                         {isGeneratingPdf ? <><Loader2 className="h-5 w-5 mr-4 animate-spin" />Processando PDF...</> : <><Download className="h-5 w-5 mr-4" />Exportar Relatório Final</>}
                     </button>
