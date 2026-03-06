@@ -474,37 +474,37 @@ const App: React.FC = () => {
     setGuiaFiles(files);
 
     const aggregateRelatorio = (items: RhRelatorioData[]) => items.reduce((acc, curr) => ({
-      valorSegurados: Number(acc.valorSegurados) + Number(curr.valorSegurados),
-      valorEmpresa: Number(acc.valorEmpresa) + Number(curr.valorEmpresa),
-      valorAcidente: Number(acc.valorAcidente) + Number(curr.valorAcidente),
-      deducaoFpas: Number(acc.deducaoFpas) + Number(curr.deducaoFpas),
-      totalARecolher: Number(acc.totalARecolher) + Number(curr.totalARecolher),
+      valorSegurados: Number(acc.valorSegurados || 0) + Number(curr.valorSegurados || 0),
+      valorEmpresa: Number(acc.valorEmpresa || 0) + Number(curr.valorEmpresa || 0),
+      valorAcidente: Number(acc.valorAcidente || 0) + Number(curr.valorAcidente || 0),
+      deducaoFpas: Number(acc.deducaoFpas || 0) + Number(curr.deducaoFpas || 0),
+      totalARecolher: Number(acc.totalARecolher || 0) + Number(curr.totalARecolher || 0),
     }), { valorSegurados: 0, valorEmpresa: 0, valorAcidente: 0, deducaoFpas: 0, totalARecolher: 0 });
 
     const aggregateRetention = (items: RetentionReportData[]) => items.reduce((acc, curr) => ({
-      valorRetido: Number(acc.valorRetido) + Number(curr.valorRetido),
+      valorRetido: Number(acc.valorRetido || 0) + Number(curr.valorRetido || 0),
       competencia: acc.competencia || curr.competencia,
       empresa: acc.empresa || curr.empresa,
     }), { valorRetido: 0, competencia: '', empresa: '' });
 
     const aggregateEmpenho = (items: EmpenhoData[]) => items.reduce((acc, curr) => ({
-      numeroEmpenho: acc.numeroEmpenho ? `${acc.numeroEmpenho}, ${curr.numeroEmpenho}` : curr.numeroEmpenho,
-      valor: Number(acc.valor) + Number(curr.valor),
+      numeroEmpenho: acc.numeroEmpenho ? `${acc.numeroEmpenho}, ${curr.numeroEmpenho || ''}` : (curr.numeroEmpenho || ''),
+      valor: Number(acc.valor || 0) + Number(curr.valor || 0),
     }), { numeroEmpenho: '', valor: 0 });
 
     const aggregateLiquidacao = (items: LiquidacaoData[]) => items.reduce((acc, curr) => ({
-      numeroEmpenho: acc.numeroEmpenho ? `${acc.numeroEmpenho}, ${curr.numeroEmpenho}` : curr.numeroEmpenho,
-      valorBruto: Number(acc.valorBruto) + Number(curr.valorBruto),
-      salarioFamilia: Number(acc.salarioFamilia) + Number(curr.salarioFamilia),
-      salarioMaternidade: Number(acc.salarioMaternidade) + Number(curr.salarioMaternidade),
+      numeroEmpenho: acc.numeroEmpenho ? `${acc.numeroEmpenho}, ${curr.numeroEmpenho || ''}` : (curr.numeroEmpenho || ''),
+      valorBruto: Number(acc.valorBruto || 0) + Number(curr.valorBruto || 0),
+      salarioFamilia: Number(acc.salarioFamilia || 0) + Number(curr.salarioFamilia || 0),
+      salarioMaternidade: Number(acc.salarioMaternidade || 0) + Number(curr.salarioMaternidade || 0),
     }), { numeroEmpenho: '', valorBruto: 0, salarioFamilia: 0, salarioMaternidade: 0 });
 
     const aggregateGuia = (items: RhGuiaData[]) => items.reduce((acc, curr) => ({
-      valorSegurados: Number(acc.valorSegurados) + Number(curr.valorSegurados),
-      valorEmpresa: Number(acc.valorEmpresa) + Number(curr.valorEmpresa),
-      valorRiscoAmbiental: Number(acc.valorRiscoAmbiental) + Number(curr.valorRiscoAmbiental),
-      valorContribIndividual: Number(acc.valorContribIndividual) + Number(curr.valorContribIndividual || 0),
-      totalGuia: Number(acc.totalGuia) + Number(curr.totalGuia),
+      valorSegurados: Number(acc.valorSegurados || 0) + Number(curr.valorSegurados || 0),
+      valorEmpresa: Number(acc.valorEmpresa || 0) + Number(curr.valorEmpresa || 0),
+      valorRiscoAmbiental: Number(acc.valorRiscoAmbiental || 0) + Number(curr.valorRiscoAmbiental || 0),
+      valorContribIndividual: Number(acc.valorContribIndividual || 0) + Number(curr.valorContribIndividual || 0),
+      totalGuia: Number(acc.totalGuia || 0) + Number(curr.totalGuia || 0),
     }), { valorSegurados: 0, valorEmpresa: 0, valorRiscoAmbiental: 0, valorContribIndividual: 0, totalGuia: 0 });
 
     const finalRelatorio = aggregateRelatorio(relatorioData);
