@@ -68,7 +68,7 @@ export async function extractData(
   if (!apiKey) throw new Error("API Key is required. Please check your environment configuration.");
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
   const prompt = getExtractionPrompt(type);
 
   const imagePart = { inlineData: { mimeType, data: base64Data } };
@@ -112,7 +112,7 @@ export const generateNotaTecnica = async (finalData: ComparisonResult): Promise<
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   if (!apiKey) throw new Error("API Key is required. Please check your environment configuration.");
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
   const format = (value: number) => value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
