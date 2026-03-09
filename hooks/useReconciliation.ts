@@ -267,8 +267,25 @@ export function useReconciliation() {
         } catch (err) {
             logger.error('Erro na blindagem de salvamento', err);
             setSaveStatus('error');
-            setError('Erro de integridade: Os dados não puderam ser salvos para evitar corrupção do histórico.');
             throw err;
+        }
+    };
+
+    const deleteReconciliation = async (id: string) => {
+        if (!supabase) return;
+        try {
+            const { error: deleteError } = await supabase
+                .from('reconciliacoes')
+                .delete()
+                .eq('id', id);
+
+            if (deleteError) throw deleteError;
+
+            setHistory(prev => prev.filter(h => h.id !== id));
+            logger.info(`Reconciliação ${id} deletada com sucesso.`);
+        } catch (err) {
+            logger.error('Erro ao deletar reconciliação', err);
+            setError('Falha ao deletar a reconciliação.');
         }
     };
 
@@ -298,6 +315,7 @@ export function useReconciliation() {
 
         // Ações
         savePartialReconciliation,
+        deleteReconciliation,
         refreshHistory: fetchHistory,
         performComparison,
     };

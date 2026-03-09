@@ -39,7 +39,7 @@ const getExtractionPrompt = (type: 'Relatorio' | 'Guia' | 'Retention' | 'Empenho
         Analise a imagem da "Nota de Liquidação".
         OBJETIVO: Extrair o número do empenho, valor bruto e retenções.
         CAMPOS:
-        1. "numeroEmpenho": O número do empenho associado (ex: "1234/2024").
+        1. "numeroEmpenho": O número do empenho associado, frequentemente rotulado como "Empenho", "Nota de Empenho" ou "NE" (ex: "1234/2024"). ATENÇÃO MÁXIMA: NÃO extraia o "Número do Processo". Procure especificamente pelo rótulo de empenho.
         2. "valorBruto": O valor bruto total da liquidação. Procure por "VALOR BRUTO".
         3. "salarioFamilia": O valor da retenção de "Salário Família". Se não houver, retorne 0.
         4. "salarioMaternidade": O valor da retenção de "Salário Maternidade". Se não houver, retorne 0.

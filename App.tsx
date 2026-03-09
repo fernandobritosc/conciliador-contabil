@@ -53,6 +53,7 @@ const App: React.FC = () => {
     saveStatus,
     savePartialReconciliation,
     performComparison,
+    deleteReconciliation,
   } = useReconciliation();
 
   const fileToBase64 = (file: File): Promise<string> => {
@@ -236,12 +237,21 @@ const App: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <button
-                onClick={() => { setViewingRecord(rec); setView('process'); setCurrentStep('COMPARISON'); }}
-                className="flex items-center text-xs font-semibold uppercase tracking-widest text-indigo-400 hover:text-indigo-300 transition-colors"
-              >
-                Detalhes <Eye className="h-4 w-4 ml-2" />
-              </button>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={(e) => { e.stopPropagation(); if (window.confirm('Tem certeza que deseja excluir permanentemente este dossiê?')) deleteReconciliation(rec.id); }}
+                  className="flex items-center text-xs font-semibold uppercase tracking-widest text-slate-500 hover:text-red-400 transition-colors p-2 rounded-lg hover:bg-red-500/10"
+                  title="Excluir Dossiê"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => { setViewingRecord(rec); setView('process'); setCurrentStep('COMPARISON'); }}
+                  className="flex items-center text-xs font-semibold uppercase tracking-widest text-indigo-400 hover:text-indigo-300 transition-colors bg-indigo-500/10 px-4 py-2 rounded-lg border border-indigo-500/20"
+                >
+                  Detalhes <Eye className="h-4 w-4 ml-2" />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -347,6 +357,22 @@ const App: React.FC = () => {
                 onNotaChange={setNotaTecnicaText}
                 isLoadingNotaTecnica={isLoading}
                 onReset={() => { setView('new'); setViewingRecord(null); setCurrentStep('UPLOAD_RH'); }}
+                onRectify={() => {
+                  if (viewingRecord) {
+                    setOrgao(viewingRecord.orgao);
+                    setCompetencia(viewingRecord.competencia);
+                    if (viewingRecord.rh_relatorio_entries) setRelatorioData(viewingRecord.rh_relatorio_entries);
+                    if (viewingRecord.retention_entries) setRetentionData(viewingRecord.retention_entries);
+                    if (viewingRecord.empenho_entries) setEmpenhoData(viewingRecord.empenho_entries);
+                    if (viewingRecord.liquidacao_entries) setLiquidacaoData(viewingRecord.liquidacao_entries);
+                    if (viewingRecord.guia_entries) setGuiaData(viewingRecord.guia_entries);
+                    setNotaTecnicaText(viewingRecord.nota_tecnica || null);
+                    setCurrentStep('UPLOAD_RH');
+                  }
+                }}
+                onSaveNotaTecnica={async (nota) => {
+                  await savePartialReconciliation({ nota_tecnica: nota });
+                }}
                 isHistoryView={!!viewingRecord}
                 files={viewingRecord?.files || []}
               />
