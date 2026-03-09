@@ -93,12 +93,12 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
                 {[
-                    { label: 'Segurados vs Retenção', valA: finalData.segurados.rh, valB: finalData.retentionData?.valorRetido || 0, match: finalData.retentionMatch, linkA: finalData.triangulation?.rh_vs_contab.segurados, linkB: finalData.triangulation?.contab_vs_darf.segurados, desc: 'RH vs Retenção Contábil' },
+                    { label: 'Segurados vs Retenção', valA: finalData.segurados.rh, valB: finalData.retentionData?.valorRetido || 0, match: finalData.retentionMatch, linkA: finalData.retentionMatch, linkB: finalData.internalMatches?.seguradosMatch, desc: 'RH vs Retenção Contábil' },
                     { label: 'Retenção vs Empenho', valA: finalData.retentionData?.valorRetido || 0, valB: finalData.empenhoData?.valor || 0, match: finalData.empenhoMatch, linkA: true, linkB: true, desc: 'Retenção vs Empenho' },
-                    { label: 'Patronal (RH vs Liquidação)', valA: finalData.empresa.rh + finalData.acidente.rh, valB: (finalData.liquidacaoData?.valorBruto || 0) - (finalData.liquidacaoData?.salarioFamilia || 0) - (finalData.liquidacaoData?.salarioMaternidade || 0), match: finalData.liquidacaoBrutoMatch, linkA: finalData.triangulation?.rh_vs_contab.empresa, linkB: true, desc: 'RH vs Liquidação Líquida' },
-                    { label: 'RH vs Guia (Segurados)', valA: finalData.segurados.rh, valB: finalData.segurados.guia, match: finalData.segurados.status === 'MATCH', linkA: finalData.triangulation?.rh_vs_contab.segurados, linkB: finalData.triangulation?.contab_vs_darf.segurados, desc: 'RH vs DARF 1082', labelB: 'GUIA' },
-                    { label: 'RH vs Guia (Patronal)', valA: finalData.empresa.rh, valB: finalData.empresa.guia, match: finalData.empresa.status === 'MATCH', linkA: finalData.triangulation?.rh_vs_contab.empresa, linkB: finalData.triangulation?.contab_vs_darf.empresa, desc: 'RH vs DARF 1138', labelB: 'GUIA' },
-                    { label: 'RH vs Guia (Total)', valA: finalData.total.rh, valB: finalData.total.guia, match: finalData.total.status === 'MATCH', linkA: finalData.triangulation?.rh_vs_contab.total, linkB: finalData.triangulation?.contab_vs_darf.total, desc: 'Cruzamento Final', labelB: 'GUIA' },
+                    { label: 'Patronal (RH vs Liquidação)', valA: finalData.empresa.rh + finalData.acidente.rh, valB: (finalData.liquidacaoData?.valorBruto || 0) - (finalData.liquidacaoData?.salarioFamilia || 0) - (finalData.liquidacaoData?.salarioMaternidade || 0), match: finalData.liquidacaoBrutoMatch, linkA: finalData.liquidacaoBrutoMatch, linkB: finalData.internalMatches?.empresaMatch, desc: 'RH vs Liquidação Líquida' },
+                    { label: 'RH vs Guia (Segurados)', valA: finalData.segurados.rh, valB: finalData.segurados.guia, match: finalData.segurados.status === 'MATCH', linkA: finalData.retentionMatch, linkB: finalData.internalMatches?.seguradosMatch, desc: 'RH vs DARF 1082', labelB: 'GUIA' },
+                    { label: 'RH vs Guia (Patronal)', valA: finalData.empresa.rh, valB: finalData.empresa.guia, match: finalData.empresa.status === 'MATCH', linkA: finalData.liquidacaoBrutoMatch, linkB: finalData.internalMatches?.empresaMatch, desc: 'RH vs DARF 1138', labelB: 'GUIA' },
+                    { label: 'RH vs Guia (Total)', valA: finalData.total.rh, valB: finalData.total.guia, match: finalData.total.status === 'MATCH', linkA: finalData.retentionMatch && finalData.liquidacaoBrutoMatch, linkB: finalData.internalMatches?.totalMatch, desc: 'Cruzamento Final', labelB: 'GUIA' },
                 ].map((item: any, idx) => {
                     const isRessalva = !item.match && item.linkB;
                     return (
@@ -117,10 +117,10 @@ const ComparisonTable: React.FC<ComparisonTableProps> = ({
                                 <div className="flex flex-col items-end shrink-0 gap-3">
                                     <div className="flex gap-1.5">
                                         <div title="RH ↔ Contab" className={`px-2 py-1 rounded-lg text-[9px] font-bold flex items-center gap-1 ${item.linkA ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30' : 'bg-red-500/20 text-red-500 border border-red-500/30'}`}>
-                                            RH <Check className="h-2.5 w-2.5" />
+                                            RH {item.linkA ? <Check className="h-2.5 w-2.5" /> : <XCircle className="h-2.5 w-2.5" />}
                                         </div>
                                         <div title="Contab ↔ DARF" className={`px-2 py-1 rounded-lg text-[9px] font-bold flex items-center gap-1 ${item.linkB ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30' : 'bg-red-500/20 text-red-500 border border-red-500/30'}`}>
-                                            {item.labelB || 'CONTAB.'} <Check className="h-2.5 w-2.5" />
+                                            {item.labelB || 'CONTAB.'} {item.linkB ? <Check className="h-2.5 w-2.5" /> : <XCircle className="h-2.5 w-2.5" />}
                                         </div>
                                     </div>
                                     <p className={`text-base font-black font-mono tracking-tighter ${item.match ? 'text-emerald-400' : isRessalva ? 'text-cyan-400' : 'text-red-400'}`}>
