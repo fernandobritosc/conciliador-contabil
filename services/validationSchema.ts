@@ -75,7 +75,7 @@ export const ReconciliationRecordSchema = z.object({
     empenho_entries: z.array(EmpenhoSchema).nullable().optional(),
     liquidacao_entries: z.array(LiquidacaoSchema).nullable().optional(),
     guia_entries: z.array(RhGuiaSchema).nullable().optional(),
-    created_at: z.string().datetime(),
+    created_at: z.string(),
     files: z.array(z.string()).default([]),
 });
 
