@@ -21,6 +21,7 @@ export interface Database {
           comparison_result: Json | null
           nota_tecnica: string | null
           created_at: string
+          updated_at?: string
           files: string[]
         }
         Insert: {
@@ -31,6 +32,7 @@ export interface Database {
           comparison_result?: Json | null
           nota_tecnica?: string | null
           created_at?: string
+          updated_at?: string
           files: string[]
         }
         Update: {
@@ -41,6 +43,7 @@ export interface Database {
           comparison_result?: Json | null
           nota_tecnica?: string | null
           created_at?: string
+          updated_at?: string
           files?: string[]
         }
         Relationships: []
@@ -53,20 +56,20 @@ export interface Database {
   }
 }
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || localStorage.getItem('SUPABASE_URL');
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || localStorage.getItem('SUPABASE_ANON_KEY');
 
 let supabaseInstance: SupabaseClient<Database> | null = null;
 
 if (supabaseUrl && supabaseAnonKey) {
   try {
     supabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey);
-    logger.info("Cliente Supabase inicializado com sucesso via variáveis de ambiente.");
+    logger.info("Cliente Supabase inicializado com sucesso.");
   } catch (error) {
     logger.error("Erro fatal ao inicializar o cliente Supabase", error);
   }
 } else {
-  logger.warn("Variáveis de ambiente do Supabase não encontradas. O sistema operará em modo offline.");
+  logger.warn("Configurações do Supabase não encontradas. O sistema operará em modo offline.");
 }
 
 export const supabase = supabaseInstance;

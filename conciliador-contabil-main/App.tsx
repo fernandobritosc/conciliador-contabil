@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Step } from './types';
+import { Step, ReconciliationRecord } from './types';
 import { extractData, generateNotaTecnica } from './services/geminiService';
 import { logger } from './services/logger';
 import { useReconciliation } from './hooks/useReconciliation';
@@ -9,6 +9,7 @@ import StepUpload from './components/StepUpload';
 import ComparisonTable from './components/ComparisonTable';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
+import Settings from './components/Settings';
 
 // Ícones
 import { PlusCircle, History, Loader2, Eye, Trash2, ArrowLeft } from 'lucide-react';
@@ -27,7 +28,7 @@ const ORGAOS = [
 ];
 
 const App: React.FC = () => {
-  const [view, setView] = useState<'new' | 'history' | 'process'>('new');
+  const [view, setView] = useState<'new' | 'history' | 'process' | 'settings'>('new');
 
   const {
     currentStep, setCurrentStep,
@@ -45,7 +46,7 @@ const App: React.FC = () => {
     empenhoFiles, setEmpenhoFiles,
     liquidacaoFiles, setLiquidacaoFiles,
     guiaFiles, setGuiaFiles,
-    comparisonResult,
+    comparisonResult, setComparisonResult,
     notaTecnicaText, setNotaTecnicaText,
     isLoading, setIsLoading,
     isHistoryLoading,
@@ -102,13 +103,19 @@ const App: React.FC = () => {
   };
 
   const handleConfirmData = async (data: any, files: File[], type: 'Relatorio' | 'Guia' | 'Retention' | 'Empenho' | 'Liquidacao') => {
-    // Atualiza os dados e arquivos (podem ter vindo de edição manual ou novos anexos)
+    // Atualiza os dados e arquivos
+    let updatedRel = relatorioData;
+    let updatedRet = retentionData;
+    let updatedEmp = empenhoData;
+    let updatedLiq = liquidacaoData;
+    let updatedGui = guiaData;
+
     switch (type) {
-      case 'Relatorio': setRelatorioData(data); setRhFiles(files); break;
-      case 'Retention': setRetentionData(data); setRetentionFiles(files); break;
-      case 'Empenho': setEmpenhoData(data); setEmpenhoFiles(files); break;
-      case 'Liquidacao': setLiquidacaoData(data); setLiquidacaoFiles(files); break;
-      case 'Guia': setGuiaData(data); setGuiaFiles(files); break;
+      case 'Relatorio': updatedRel = data; setRelatorioData(data); setRhFiles(files); break;
+      case 'Retention': updatedRet = data; setRetentionData(data); setRetentionFiles(files); break;
+      case 'Empenho': updatedEmp = data; setEmpenhoData(data); setEmpenhoFiles(files); break;
+      case 'Liquidacao': updatedLiq = data; setLiquidacaoData(data); setLiquidacaoFiles(files); break;
+      case 'Guia': updatedGui = data; setGuiaData(data); setGuiaFiles(files); break;
     }
 
     const nextStepMap: Record<string, Step> = {
@@ -122,10 +129,27 @@ const App: React.FC = () => {
     const nextStep = nextStepMap[currentStep];
     if (nextStep) {
       if (nextStep === 'COMPARISON') {
-        const result = performComparison(relatorioData, retentionData, empenhoData, liquidacaoData, guiaData);
-        if (result) {
-          await savePartialReconciliation({ comparison_result: result, status: result.finalStatus });
+        logger.debug('[DEBUG] Iniciando cálculo final da conciliação...');
+        const result = performComparison(updatedRel, updatedRet, updatedEmp, updatedLiq, updatedGui);
+        
+        if (!result) {
+          logger.error('Falha ao gerar o resultado da comparação', null);
+          setError('Os dados fornecidos são insuficientes para gerar o relatório final. Verifique os uploads.');
+          return;
         }
+
+        setComparisonResult(result);
+        logger.debug('[DEBUG] Resultado gerado com sucesso', result);
+        
+        await savePartialReconciliation({ 
+          comparison_result: result, 
+          status: result.finalStatus,
+          rh_relatorio_entries: updatedRel,
+          retention_entries: updatedRet,
+          empenho_entries: updatedEmp,
+          liquidacao_entries: updatedLiq,
+          guia_entries: updatedGui
+        });
       }
       setCurrentStep(nextStep);
     }
@@ -133,11 +157,11 @@ const App: React.FC = () => {
 
   const handleClearStep = (type: 'Relatorio' | 'Guia' | 'Retention' | 'Empenho' | 'Liquidacao') => {
     switch (type) {
-      case 'Relatorio': setRelatorioData(null); setRhFiles([]); break;
-      case 'Retention': setRetentionData(null); setRetentionFiles([]); break;
-      case 'Empenho': setEmpenhoData(null); setEmpenhoFiles([]); break;
-      case 'Liquidacao': setLiquidacaoData(null); setLiquidacaoFiles([]); break;
-      case 'Guia': setGuiaData(null); setGuiaFiles([]); break;
+      case 'Relatorio': setRelatorioData([]); setRhFiles([]); break;
+      case 'Retention': setRetentionData([]); setRetentionFiles([]); break;
+      case 'Empenho': setEmpenhoData([]); setEmpenhoFiles([]); break;
+      case 'Liquidacao': setLiquidacaoData([]); setLiquidacaoFiles([]); break;
+      case 'Guia': setGuiaData([]); setGuiaFiles([]); break;
     }
   };
 
@@ -148,12 +172,82 @@ const App: React.FC = () => {
     try {
       const text = await generateNotaTecnica(data);
       setNotaTecnicaText(text);
+      // Salva explicitamente o texto gerado no banco de dados
       await savePartialReconciliation({ nota_tecnica: text });
     } catch (err) {
       logger.error('Erro ao gerar nota técnica', err);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleViewRecord = (rec: ReconciliationRecord) => {
+    logger.debug('[DEBUG] Abrindo registro', { id: rec.id, orgao: rec.orgao });
+    logger.debug('[DEBUG] Dados disponíveis no registro', {
+      hasSavedResult: !!rec.comparison_result,
+      rhCount: rec.rh_relatorio_entries?.length ?? 0,
+      retCount: rec.retention_entries?.length ?? 0,
+      empCount: rec.empenho_entries?.length ?? 0,
+      liqCount: rec.liquidacao_entries?.length ?? 0,
+      guiCount: rec.guia_entries?.length ?? 0,
+    });
+    
+    // 1. PRIORIDADE: se há resultado salvo, usar diretamente
+    if (rec.comparison_result) {
+      logger.debug('[DEBUG] Usando resultado salvo no registro');
+      setComparisonResult(rec.comparison_result);
+      setViewingRecord(rec);
+      setNotaTecnicaText(rec.nota_tecnica || null);
+      setError(null);
+      setView('process');
+      setCurrentStep('COMPARISON');
+      return;
+    }
+    
+    // 2. ALTERNATIVA: tentar recalcular se houver dados disponíveis
+    const hasData = (rec.rh_relatorio_entries?.length ?? 0) > 0 || 
+                    (rec.retention_entries?.length ?? 0) > 0 ||
+                    (rec.empenho_entries?.length ?? 0) > 0 ||
+                    (rec.liquidacao_entries?.length ?? 0) > 0 ||
+                    (rec.guia_entries?.length ?? 0) > 0;
+
+    if (hasData) {
+      console.log('[DEBUG] Recalculando comparação para registro histórico...');
+      const finalResult = performComparison(
+        rec.rh_relatorio_entries || [],
+        rec.retention_entries || [],
+        rec.empenho_entries || [],
+        rec.liquidacao_entries || [],
+        rec.guia_entries || []
+      );
+      
+      if (finalResult) {
+        console.log('[DEBUG] Resultado recalculado com sucesso');
+        setComparisonResult(finalResult);
+        setViewingRecord({ ...rec, comparison_result: finalResult });
+        setNotaTecnicaText(rec.nota_tecnica || null);
+        setError(null);
+        setView('process');
+        setCurrentStep('COMPARISON');
+        return;
+      }
+    }
+
+    // 3. FALLBACK: Se chegou aqui e tem nota técnica, permitir visualização mesmo sem dados
+    if (rec.nota_tecnica) {
+      console.warn('[AVISO] Registro sem dados de comparação, mas com nota técnica. Permitindo visualização limitada.');
+      setViewingRecord(rec);
+      setNotaTecnicaText(rec.nota_tecnica);
+      setError(`Ⓘ Registro legado: sem dados suficientes para análise, mas nota técnica disponível.`);
+      setComparisonResult(null);
+      setView('process');
+      setCurrentStep('COMPARISON');
+      return;
+    }
+
+    // 4. FALHA FINAL: registro completamente inválido
+    console.error('[ERRO] Registro incompleto - sem resultado, sem dados e sem nota técnica');
+    setError(`Registro "${rec.orgao}" (${rec.competencia}) está corrompido e não pode ser recuperado. Status: ${rec.status}. Recomenda-se exclusão.`);
   };
 
   const renderNewScreen = () => (
@@ -189,13 +283,21 @@ const App: React.FC = () => {
             value={competencia}
             onChange={e => setCompetencia(e.target.value)}
             placeholder="01/2026"
-            className="bg-slate-800 text-slate-200 w-full px-4 py-3 border border-slate-700 rounded-lg focus:border-indigo-500 transition-colors"
+            maxLength={7}
+            className={`bg-slate-800 text-slate-200 w-full px-4 py-3 border rounded-lg focus:outline-none transition-colors ${
+              competencia && !/^\d{2}\/\d{4}$/.test(competencia)
+                ? 'border-red-500 focus:border-red-400'
+                : 'border-slate-700 focus:border-indigo-500'
+            }`}
           />
+          {competencia && !/^\d{2}\/\d{4}$/.test(competencia) && (
+            <p className="text-xs text-red-400 font-medium">Formato inválido. Use MM/AAAA (ex: 01/2026)</p>
+          )}
         </div>
       </div>
       <button
         onClick={() => { setView('process'); setCurrentStep('UPLOAD_RH'); }}
-        disabled={!orgao || !competencia}
+        disabled={!orgao || !competencia || !/^\d{2}\/\d{4}$/.test(competencia)}
         className="w-full bg-indigo-600 p-4 rounded-lg mt-10 font-semibold text-white hover:bg-indigo-500 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
       >
         Configurar Processo de Auditoria
@@ -221,7 +323,7 @@ const App: React.FC = () => {
           <Loader2 className="h-12 w-12 animate-spin text-indigo-400" />
           <p className="text-slate-400 font-semibold mt-6 tracking-wide uppercase text-xs">Sincronizando...</p>
         </div>
-      ) : (
+      ) : history.length > 0 ? (
         <div className="grid gap-3">
           {history.map(rec => (
             <div key={rec.id} className="bg-slate-900 border border-slate-800 p-5 rounded-xl flex justify-between items-center group transition-colors hover:border-slate-700">
@@ -231,9 +333,21 @@ const App: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-100 group-hover:text-white transition-colors">{rec.orgao}</h3>
-                  <div className="flex gap-4 mt-1">
+                  <div className="flex flex-wrap gap-4 mt-2">
                     <span className="text-xs text-slate-500 font-mono">REF: {rec.competencia}</span>
                     <span className="text-[10px] font-bold uppercase text-indigo-400 bg-indigo-500/5 px-2 py-0.5 rounded border border-indigo-500/20">{rec.status.replace(/_/g, ' ')}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-x-6 gap-y-1 mt-3 pt-2 border-t border-white/5">
+                    <div className="flex items-center text-[10px] text-slate-500">
+                      <span className="font-bold uppercase tracking-tighter mr-2 text-slate-600">Inclusão:</span>
+                      {new Date(rec.created_at).toLocaleString('pt-BR')}
+                    </div>
+                    {rec.updated_at && (
+                      <div className="flex items-center text-[10px] text-slate-500">
+                        <span className="font-bold uppercase tracking-tighter mr-2 text-amber-500/70">Alteração:</span>
+                        {new Date(rec.updated_at).toLocaleString('pt-BR')}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -246,7 +360,7 @@ const App: React.FC = () => {
                   <Trash2 className="h-4 w-4" />
                 </button>
                 <button
-                  onClick={() => { setViewingRecord(rec); setView('process'); setCurrentStep('COMPARISON'); }}
+                  onClick={() => handleViewRecord(rec)}
                   className="flex items-center text-xs font-semibold uppercase tracking-widest text-indigo-400 hover:text-indigo-300 transition-colors bg-indigo-500/10 px-4 py-2 rounded-lg border border-indigo-500/20"
                 >
                   Detalhes <Eye className="h-4 w-4 ml-2" />
@@ -254,6 +368,12 @@ const App: React.FC = () => {
               </div>
             </div>
           ))}
+        </div>
+      ) : (
+        <div className="bg-slate-900/50 border border-slate-800 border-dashed p-20 rounded-xl text-center">
+          <History className="h-12 w-12 text-slate-700 mx-auto mb-4" />
+          <h3 className="text-xl font-bold text-slate-300">Nenhum registro encontrado</h3>
+          <p className="text-slate-500 mt-2">Inicie uma nova conciliação ou verifique suas configurações de banco de dados.</p>
         </div>
       )}
     </div>
@@ -307,13 +427,14 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-[#0F172A] font-sans text-slate-200">
-      <Sidebar currentView={view} setView={setView} />
+    <div className="flex min-h-screen bg-[#020617] text-slate-200 font-sans selection:bg-indigo-500/30">
+      <Sidebar currentView={view} onViewChange={setView} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header orgao={orgao} competencia={competencia} saveStatus={saveStatus} />
         <main className="flex-1 overflow-auto p-4 md:p-8 custom-scrollbar">
           {view === 'new' && renderNewScreen()}
           {view === 'history' && renderHistoryScreen()}
+          {view === 'settings' && <Settings />}
           {view === 'process' && currentStep !== 'COMPARISON' && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-300 max-w-4xl mx-auto">
               <button
@@ -351,7 +472,7 @@ const App: React.FC = () => {
                 </span>
               </button>
               <ComparisonTable
-                finalData={viewingRecord?.comparison_result || comparisonResult!}
+                finalData={viewingRecord?.comparison_result ?? comparisonResult ?? undefined}
                 onGenerateNotaTecnica={handleGenerateNotaTecnica}
                 notaTecnicaText={notaTecnicaText}
                 onNotaChange={setNotaTecnicaText}

@@ -1,11 +1,12 @@
 import React from 'react';
-import { BotMessageSquare, PlusCircle, History } from 'lucide-react';
+import { BotMessageSquare, PlusCircle, History, Settings } from 'lucide-react';
 
-type View = 'new' | 'history' | 'process';
+type View = 'new' | 'history' | 'process' | 'settings';
 
 interface SidebarProps {
   currentView: View;
-  setView: (view: View) => void;
+  onViewChange: (view: View) => void;
+  historyCount?: number;
 }
 
 const NavLink: React.FC<{
@@ -29,7 +30,7 @@ const NavLink: React.FC<{
   );
 };
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentView, setView }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange }) => {
   return (
     <aside className="w-64 bg-[#0F172A] border-r border-slate-800 text-slate-200 flex-col p-6 hidden md:flex transition-all">
       <div className="flex items-center space-x-3 mb-12 px-2">
@@ -41,7 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, setView }) => {
             AUDITOR
           </h1>
           <p className="text-[10px] uppercase font-bold tracking-[0.2em] text-slate-400 mt-[-4px]">
-            IA PROFISSIONAL
+            CONTÁBIL / FOLHA
           </p>
         </div>
       </div>
@@ -50,13 +51,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, setView }) => {
           icon={PlusCircle}
           label="Nova Conciliação"
           isActive={currentView === 'new' || currentView === 'process'}
-          onClick={() => setView('new')}
+          onClick={() => onViewChange('new')}
         />
         <NavLink
           icon={History}
           label="Histórico Geral"
           isActive={currentView === 'history'}
-          onClick={() => setView('history')}
+          onClick={() => onViewChange('history')}
+        />
+        <NavLink
+          icon={Settings}
+          label="Configurações"
+          isActive={currentView === 'settings'}
+          onClick={() => onViewChange('settings')}
         />
       </nav>
 

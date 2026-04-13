@@ -159,7 +159,10 @@ const StepUpload: React.FC<StepUploadProps> = ({ title, description, manualTitle
             return entryData;
         });
 
-        if (mode === 'ia' && editableData) {
+        // Adiciona dado da IA APENAS quando não há entradas manuais que já o substituam.
+        // Se manualEntries.length > 0, o usuário editou/adicionou lançamentos manualmente
+        // e esses já representam os dados definitivos — não duplicar o dado original da IA.
+        if (mode === 'ia' && editableData && manualEntries.length === 0) {
             const entryData = blankDataFactory();
             fields.forEach(field => {
                 const value = isEditing ? formValues[field.key] : editableData[field.key];

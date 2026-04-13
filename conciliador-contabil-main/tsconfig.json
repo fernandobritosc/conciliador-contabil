@@ -34,6 +34,8 @@
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    "antigravity-awesome-skills-main",
+    "ui-ux-pro-max-skill-main"
   ]
 }

@@ -1,5 +1,3 @@
-
-
 export type ComparisonStatus = 'CONCILIADO' | 'CONCILIADO_COM_RESSALVA' | 'DIVERGENTE';
 
 export interface RhRelatorioData {
@@ -76,6 +74,13 @@ export interface ComparisonResult {
   totalContab: number;
   guiaData?: RhGuiaData;
   finalStatus: ComparisonStatus;
+  analyticalData?: {
+    rh: RhRelatorioData[];
+    retention: RetentionReportData[];
+    empenho: EmpenhoData[];
+    liquidacao: LiquidacaoData[];
+    guia: RhGuiaData[];
+  };
 }
 
 export type Step = 'UPLOAD_RH' | 'UPLOAD_RETENTION' | 'UPLOAD_EMPENHO' | 'UPLOAD_LIQUIDACAO' | 'UPLOAD_GUIA' | 'COMPARISON';
@@ -94,5 +99,6 @@ export interface ReconciliationRecord {
   liquidacao_entries?: any[] | null;
   guia_entries?: any[] | null;
   created_at: string;
+  updated_at?: string; // Data da última alteração
   files: string[];
 }

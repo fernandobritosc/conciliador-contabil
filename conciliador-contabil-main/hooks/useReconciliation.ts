@@ -91,11 +91,19 @@ export function useReconciliation() {
         const finalLiquidacao = aggregateLiquidacao(liq);
         const finalGuia = aggregateGuia(gui);
 
-        const tolerance = 0.05;
+        const tolerance = 0.01; // Rigor absoluto: tolerância de apenas 1 centavo
+
+        // Cálculo de Brutos para conferência de empenho/liquidação
+        const brutoRhPatronal = (finalRelatorio.valorEmpresa + finalRelatorio.valorAcidente);
+        const liquidoContabilPatronal = (finalLiquidacao.valorBruto - (finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade));
+        
+        // Nova lógica: se a contabilidade não informou deduções mas o valor bate com o BRUTO do RH, consideramos íntegro
+        const patronalMatch = Math.abs(liquidoContabilPatronal - (brutoRhPatronal - finalRelatorio.deducaoFpas)) < tolerance || 
+                             Math.abs(finalLiquidacao.valorBruto - brutoRhPatronal) < tolerance;
 
         const internalMatches = {
             seguradosMatch: Math.abs((finalGuia.valorSegurados + (finalGuia.valorContribIndividual || 0)) - finalRetention.valorRetido) < tolerance,
-            empresaMatch: Math.abs(finalGuia.valorEmpresa - finalRelatorio.valorEmpresa) < tolerance,
+            empresaMatch: Math.abs(finalGuia.valorEmpresa - (finalRelatorio.valorEmpresa - finalRelatorio.deducaoFpas)) < tolerance,
             acidenteMatch: Math.abs(finalGuia.valorRiscoAmbiental - finalRelatorio.valorAcidente) < tolerance,
             totalMatch: Math.abs(finalGuia.totalGuia - finalRelatorio.totalARecolher) < tolerance
         };
@@ -106,12 +114,12 @@ export function useReconciliation() {
             retentionMatch: Math.abs(finalRetention.valorRetido - finalRelatorio.valorSegurados) < tolerance,
             retentionDifference: finalRetention.valorRetido - finalRelatorio.valorSegurados,
             empenhoData: finalEmpenho,
-            empenhoMatch: Math.abs(finalEmpenho.valor - finalRetention.valorRetido) < tolerance,
+            empenhoMatch: Math.abs(finalEmpenho.valor - finalRetention.valorRetido) < tolerance || Math.abs(finalEmpenho.valor - finalRelatorio.valorSegurados) < tolerance,
             empenhoDifference: finalEmpenho.valor - finalRetention.valorRetido,
             liquidacaoData: finalLiquidacao,
-            liquidacaoBrutoMatch: Math.abs((finalLiquidacao.valorBruto - (finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade)) - ((finalRelatorio.valorEmpresa + finalRelatorio.valorAcidente) - finalRelatorio.deducaoFpas)) < tolerance,
-            liquidacaoBrutoDifference: (finalLiquidacao.valorBruto - (finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade)) - ((finalRelatorio.valorEmpresa + finalRelatorio.valorAcidente) - finalRelatorio.deducaoFpas),
-            liquidacaoRetencaoMatch: true, // Ignorado pois Salário Família não bate com FPAS
+            liquidacaoBrutoMatch: patronalMatch,
+            liquidacaoBrutoDifference: finalLiquidacao.valorBruto - brutoRhPatronal,
+            liquidacaoRetencaoMatch: true, 
             liquidacaoRetencaoDifference: 0,
             deducaoFpas: finalRelatorio.deducaoFpas,
             segurados: {
@@ -138,27 +146,38 @@ export function useReconciliation() {
                 diff: finalGuia.totalGuia - finalRelatorio.totalARecolher,
                 status: Math.abs(finalGuia.totalGuia - finalRelatorio.totalARecolher) < tolerance ? 'MATCH' : 'MISMATCH'
             },
+            triangulation: {
+                rh_vs_contab: {
+                    segurados: Math.abs(finalRelatorio.valorSegurados - finalRetention.valorRetido) < tolerance,
+                    empresa: Math.abs((finalRelatorio.valorEmpresa + finalRelatorio.valorAcidente - finalRelatorio.deducaoFpas) - (finalLiquidacao.valorBruto - finalLiquidacao.salarioFamilia - finalLiquidacao.salarioMaternidade)) < tolerance,
+                    total: Math.abs(finalRelatorio.totalARecolher - ((finalRetention.valorRetido + finalLiquidacao.valorBruto) - (finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade))) < tolerance
+                },
+                contab_vs_darf: {
+                    segurados: Math.abs(finalRetention.valorRetido - (finalGuia.valorSegurados + (finalGuia.valorContribIndividual || 0))) < tolerance,
+                    empresa: Math.abs((finalLiquidacao.valorBruto - finalLiquidacao.salarioFamilia - finalLiquidacao.salarioMaternidade) - (finalGuia.valorEmpresa + finalGuia.valorRiscoAmbiental)) < tolerance,
+                    total: Math.abs(((finalRetention.valorRetido + finalLiquidacao.valorBruto) - (finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade)) - finalGuia.totalGuia) < tolerance
+                }
+            },
             internalMatches,
             totalContab: (finalRetention.valorRetido + finalLiquidacao.valorBruto) - (finalLiquidacao.salarioFamilia + finalLiquidacao.salarioMaternidade),
             guiaData: finalGuia,
-            finalStatus: 'DIVERGENTE'
+            finalStatus: 'DIVERGENTE',
+            analyticalData: {
+                rh: rel,
+                retention: ret,
+                empenho: emp,
+                liquidacao: liq,
+                guia: gui
+            }
         };
 
-        const rhMatches = [
-            result.retentionMatch,
-            result.liquidacaoBrutoMatch,
-            result.liquidacaoRetencaoMatch,
+        const rhMatches = Object.values(result.triangulation!.rh_vs_contab).every(Boolean);
+        const accountingGuiaMatches = Object.values(result.triangulation!.contab_vs_darf).every(Boolean);
+        const directRhGuiaMatches = [
             result.segurados.status === 'MATCH',
             result.empresa.status === 'MATCH',
             result.acidente.status === 'MATCH',
             result.total.status === 'MATCH'
-        ].every(Boolean);
-
-        const accountingGuiaMatches = [
-            internalMatches.seguradosMatch,
-            internalMatches.empresaMatch,
-            internalMatches.acidenteMatch,
-            internalMatches.totalMatch
         ].every(Boolean);
 
         // Elo de Ferro: Alerta de Divergência Crítica
@@ -166,10 +185,12 @@ export function useReconciliation() {
             logger.warn('DIVERGÊNCIA CRÍTICA: Diferença entre RH e Guia excede R$ 1.000,00.', { diff: result.total.diff });
         }
 
-        if (rhMatches) {
+        if (rhMatches && accountingGuiaMatches && directRhGuiaMatches) {
             result.finalStatus = 'CONCILIADO';
-        } else if (accountingGuiaMatches) {
+        } else if (directRhGuiaMatches) {
             result.finalStatus = 'CONCILIADO_COM_RESSALVA';
+        } else {
+            result.finalStatus = 'DIVERGENTE';
         }
 
         return result;
@@ -177,7 +198,11 @@ export function useReconciliation() {
 
     // Sistema de Persistência Blindada
     const fetchHistory = useCallback(async () => {
-        if (!supabase) return;
+        if (!supabase) {
+            setIsHistoryLoading(false);
+            logger.warn('Modo Offline: Supabase não configurado.');
+            return;
+        }
         setIsHistoryLoading(true);
         try {
             const { data, error: dbError } = await supabase
@@ -210,14 +235,22 @@ export function useReconciliation() {
             const id = viewingRecord?.id || partialData.id || crypto.randomUUID();
             setSaveStatus('saving');
 
-            // Calcula o resultado da comparação atualizado
-            const currentResult = performComparison(
-                partialData.rh_relatorio_entries || relatorioData,
-                partialData.retention_entries || retentionData,
-                partialData.empenho_entries || empenhoData,
-                partialData.liquidacao_entries || liquidacaoData,
-                partialData.guia_entries || guiaData
-            );
+            // Preparar dados - sempre como arrays, nunca como null
+            const rhEntries = partialData.rh_relatorio_entries ?? relatorioData;
+            const retEntries = partialData.retention_entries ?? retentionData;
+            const empEntries = partialData.empenho_entries ?? empenhoData;
+            const liqEntries = partialData.liquidacao_entries ?? liquidacaoData;
+            const guiEntries = partialData.guia_entries ?? guiaData;
+
+            // Calcula o resultado apenas se não foi fornecido já calculado (evita race condition)
+            const currentResult = (partialData.comparison_result as ComparisonResult | null | undefined)
+                ?? performComparison(
+                    rhEntries,
+                    retEntries,
+                    empEntries,
+                    liqEntries,
+                    guiEntries
+                );
 
             const recordData = {
                 id,
@@ -226,15 +259,25 @@ export function useReconciliation() {
                 status: partialData.status || (currentResult?.finalStatus || 'EM_ANDAMENTO'),
                 comparison_result: currentResult || comparisonResult,
                 nota_tecnica: partialData.nota_tecnica || notaTecnicaText,
-                rh_relatorio_entries: partialData.rh_relatorio_entries || (relatorioData.length > 0 ? relatorioData : null),
-                retention_entries: partialData.retention_entries || (retentionData.length > 0 ? retentionData : null),
-                empenho_entries: partialData.empenho_entries || (empenhoData.length > 0 ? empenhoData : null),
-                liquidacao_entries: partialData.liquidacao_entries || (liquidacaoData.length > 0 ? liquidacaoData : null),
-                guia_entries: partialData.guia_entries || (guiaData.length > 0 ? guiaData : null),
+                rh_relatorio_entries: rhEntries.length > 0 ? rhEntries : [],
+                retention_entries: retEntries.length > 0 ? retEntries : [],
+                empenho_entries: empEntries.length > 0 ? empEntries : [],
+                liquidacao_entries: liqEntries.length > 0 ? liqEntries : [],
+                guia_entries: guiEntries.length > 0 ? guiEntries : [],
                 created_at: viewingRecord?.created_at || new Date().toISOString(),
+                updated_at: new Date().toISOString(),
                 files: partialData.files || [],
                 observacoes: partialData.observacoes || null,
             };
+
+            logger.debug('[DEBUG] Salvando reconciliação com dados', {
+                rhCount: recordData.rh_relatorio_entries.length,
+                retCount: recordData.retention_entries.length,
+                empCount: recordData.empenho_entries.length,
+                liqCount: recordData.liquidacao_entries.length,
+                guiCount: recordData.guia_entries.length,
+                hasResult: !!recordData.comparison_result
+            });
 
             const validatedData = ReconciliationRecordSchema.parse(recordData);
 
